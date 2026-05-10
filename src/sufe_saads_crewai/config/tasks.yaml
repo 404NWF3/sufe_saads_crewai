@@ -1,0 +1,91 @@
+select_next_actions_task:
+  description: >
+    Review the current intelligence run and choose 1 to 5 next actions only from
+    the approved ActionCatalog. Runtime inputs: run_goal={run_goal},
+    search_query={search_query}, blackboard_json={blackboard_json}.
+    Consider the goal, known gaps, query history, source quality, novelty,
+    duplicate risk, remaining budget, source proposals, and pending persistence
+    work. Do not invent actions outside the catalog.
+  expected_output: >
+    A structured object with fields actions, planner_rationale, and
+    should_start_collection. Each action must include action_type, priority,
+    rationale, expected_gain, required_context, success_criteria,
+    retry_conditions, stop_conditions, and estimated_cost_level.
+  agent: autonomous_planner
+
+search_registered_sources_task:
+  description: >
+    使用已批准来源执行搜索。默认搜索 query 为 {search_query}，并结合前序规划任务中的
+    actions 和 blackboard_json={blackboard_json}。优先使用 registered_api_source_search
+    工具采集真实结构化来源：nvd_cve_api、arxiv_api、cisa_kev_json、osv_dev_api。
+    NVD CVE API 适合 keywordSearch、pubStartDate/pubEndDate、hasKev 等参数化漏洞检索；
+    arXiv API 适合 prompt injection、jailbreak、RAG poisoning 等论文检索；
+    CISA KEV JSON 适合补充已被利用漏洞；
+    OSV.dev API 适合开源生态漏洞，尤其是 GitHub Advisory、PyPI、RustSec 等聚合数据。
+    只允许从已批准来源正式采集；如果发现新来源，只在后续提案任务中记录，不能在本任务采集。
+    输出应压缩为适合下游评估的轻量采集批次。
+  expected_output: >
+    一个结构化对象，包含 query_text、source_names、items 和 batch_notes。
+    每个 item 必须包含 source_name、source_uri、title、summary、relevance_score、
+    topics 和 evidence_snippet。没有结果时 items 返回空列表，并在 batch_notes 说明原因。
+    不得输出 mock.local 或任何 mock source 的结果。
+  agent: source_intelligence_collector
+
+assess_collection_yield_task:
+  description: >
+    评估最近一轮采集质量。根据前序采集结果判断每个来源的结果数量、新颖度、噪声率、
+    证据质量，以及当前 query 是否值得继续扩展。明确指出低产出来源、高噪声 query、
+    有用 query 和建议调整。
+  expected_output: >
+    一个结构化对象，包含 metrics、low_yield_sources、high_noise_queries、
+    useful_queries、novelty_summary 和 recommended_adjustments。
+    每个 metric 必须包含 source_name、result_count、novelty_score、noise_ratio
+    和 evidence_quality。
+  agent: reflection_coverage_critic
+
+analyze_coverage_gaps_task:
+  description: >
+    分析当前采集结果对大模型安全主题的覆盖情况。重点关注 prompt injection、
+    jailbreak、agent tool abuse、data leakage、model supply chain、RAG poisoning
+    等方向。识别仍然缺失或覆盖不足的高价值主题，并为每个缺口给出一个推荐 query。
+  expected_output: >
+    一个结构化对象，包含 gaps、overall_coverage_score 和 analysis_rationale。
+    每个 gap 必须包含 topic、current_coverage、target_coverage、estimated_roi、
+    recommended_query 和 priority。没有缺口时 gaps 返回空列表。
+  agent: reflection_coverage_critic
+
+propose_new_sources_task:
+  description: >
+    根据前序采集结果和覆盖缺口提出潜在新情报来源。当前阶段不得从这些来源正式采集，
+    只能生成 approval_status 为 pending 的来源提案。提案必须说明覆盖主题、可信理由、
+    预期覆盖收益和风险说明。
+  expected_output: >
+    一个结构化对象，包含 proposals 和 rationale。每个 proposal 必须包含 source_name、
+    base_uri、source_type、coverage_topics、expected_coverage_gain、trust_rationale、
+    risk_notes 和 approval_status。approval_status 必须是 pending。
+  agent: source_intelligence_collector
+
+rewrite_search_strategy_task:
+  description: >
+    Based on the collection yield and coverage gaps, decide whether to rewrite
+    the search query. Generate at most one next query for under-covered LLM
+    security topics. Avoid repeating query patterns that were high-noise,
+    duplicate-heavy, or low-yield. If meaningful coverage gaps remain, produce
+    a concrete next query for another collection round instead of ending with a
+    summary.
+  expected_output: >
+    A structured object with fields should_rewrite, rewritten_query,
+    target_topics, topics_to_stop, rationale, and confidence. If no rewrite is
+    needed, should_rewrite must be false and rewritten_query must be null.
+  agent: autonomous_planner
+
+evaluate_search_completeness_task:
+  description: >
+    判断当前搜索是否应该继续。综合前序采集、收益评估、覆盖缺口和 query 改写建议，
+    给出继续或停止的明确结论。如果应该继续，提供 recommended_next_query；
+    如果应该停止，提供 stop_reason。
+  expected_output: >
+    一个结构化对象，包含 should_continue、completeness_score、missing_topics、
+    recommended_next_query、stop_reason 和 rationale。recommended_next_query 和
+    stop_reason 可以为 null，但必须保留字段。
+  agent: reflection_coverage_critic
