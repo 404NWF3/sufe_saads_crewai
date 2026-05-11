@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from unittest.mock import patch
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
@@ -89,7 +90,8 @@ class FakeRegisteredSourceTool:
 
 class RealIntelLoopTests(unittest.TestCase):
     def test_production_agents_use_glm_and_collector_has_no_mock_tools(self) -> None:
-        crew = SufeSaadsCrewai().crew()
+        with patch.dict("os.environ", {"GLM_API_KEY": "test-glm-key"}):
+            crew = SufeSaadsCrewai().crew()
         models = [getattr(agent.llm, "model", "") for agent in crew.agents]
         collector = next(
             agent for agent in crew.agents if "多源情报采集员" in agent.role
