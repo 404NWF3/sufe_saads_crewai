@@ -10,6 +10,7 @@ from sufe_saads_crewai.schemas.crew_outputs import (
     CoverageAnalysisOutput,
     PlannerDecisionOutput,
     RewriteDecisionOutput,
+    SearchSemanticExpansionOutput,
     SourceProposalBatchOutput,
     YieldAssessmentOutput,
 )
@@ -20,6 +21,7 @@ CREW_OUTPUT_MODELS = [
     CollectionBatchOutput,
     YieldAssessmentOutput,
     CoverageAnalysisOutput,
+    SearchSemanticExpansionOutput,
     SourceProposalBatchOutput,
     RewriteDecisionOutput,
     CompletenessDecisionOutput,

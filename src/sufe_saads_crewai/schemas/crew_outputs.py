@@ -10,6 +10,7 @@ ActionName = Literal[
     "SEARCH_REGISTERED_SOURCE",
     "ASSESS_COLLECTION_YIELD",
     "ANALYZE_COVERAGE_GAPS",
+    "EXPAND_SEARCH_SEMANTICS",
     "REFLECT_SEARCH_STRATEGY",
     "PROPOSE_NEW_SOURCE",
     "STOP",
@@ -26,6 +27,12 @@ SourceKind = Literal[
     "web",
     "security_db",
     "research",
+]
+RegisteredSourceName = Literal[
+    "nvd_cve_api",
+    "arxiv_api",
+    "cisa_kev_json",
+    "osv_dev_api",
 ]
 
 
@@ -114,6 +121,30 @@ class CoverageAnalysisOutput(StrictCrewOutput):
     gaps: list[CoverageGapOutput]
     overall_coverage_score: float
     analysis_rationale: str
+
+
+class SourceSemanticTerms(StrictCrewOutput):
+    source_name: RegisteredSourceName
+    positive_terms: list[str]
+    negative_terms: list[str]
+    query_templates: list[str]
+    parameter_hints: list[str]
+    rationale: str
+
+
+class SemanticGapExpansion(StrictCrewOutput):
+    gap_topic: str
+    expanded_terms: list[str]
+    source_specific_terms: list[SourceSemanticTerms]
+    global_negative_terms: list[str]
+    rationale: str
+    confidence: float
+
+
+class SearchSemanticExpansionOutput(StrictCrewOutput):
+    expansions: list[SemanticGapExpansion]
+    overall_rationale: str
+    confidence: float
 
 
 class RewriteDecisionOutput(StrictCrewOutput):
