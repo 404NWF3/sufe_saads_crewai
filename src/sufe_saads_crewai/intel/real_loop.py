@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import hashlib
 import json
+import math
 import os
 import re
 from time import monotonic
@@ -100,6 +101,7 @@ class RealIntelRunController:
         self._executed_query_keys: set[str] = set()
         self._executed_source_query_keys: set[str] = set()
         self._latest_semantic_expansion: SearchSemanticExpansionOutput | None = None
+        self._latest_source_budget_audit: dict[str, Any] = {}
 
     def run(self) -> IntelRunBlackboard:
         budget = self.run_budget.model_copy() if self.run_budget is not None else RunBudget()
@@ -115,6 +117,7 @@ class RealIntelRunController:
             budget=budget,
             approved_sources=default_registered_api_sources(),
         )
+        self._ensure_source_scores(blackboard)
         current_query = self.initial_query
         started_at = monotonic()
         round_index = 0
@@ -145,6 +148,7 @@ class RealIntelRunController:
             self._merge_batch_into_blackboard(blackboard, query_plan, latest_batch)
 
             yield_assessment = self._assess_collection_yield(blackboard, latest_batch)
+            self._update_source_scores_from_yield(blackboard, yield_assessment)
             gap_analysis = self._analyze_coverage_gaps(blackboard)
             semantic_expansion = self._expand_search_semantics(
                 blackboard,
@@ -170,6 +174,8 @@ class RealIntelRunController:
                 yield_assessment,
                 gap_analysis,
             )
+            if reflection.source_priority_changes:
+                self._apply_source_priority_changes(blackboard, reflection.source_priority_changes)
             if reflection.rewritten_queries:
                 blackboard.reflection_notes.append(reflection)
                 blackboard.action_history.append(
@@ -437,6 +443,7 @@ class RealIntelRunController:
         blackboard: IntelRunBlackboard,
         query_plan: SearchQueryPlan,
     ) -> list[SourceQuerySpec]:
+        self._ensure_source_scores(blackboard)
         enabled_sources = set(query_plan.source_names) or {
             source.source_name for source in blackboard.approved_sources if source.enabled
         }
@@ -485,25 +492,205 @@ class RealIntelRunController:
                     )
                 )
 
-        fresh_specs = [
-            spec for spec in specs if self._source_query_key(spec) not in self._executed_source_query_keys
-        ]
-        if fresh_specs:
-            return fresh_specs
-        if specs:
-            return specs[: max(1, min(4, len(specs)))]
+        if not specs:
+            specs = [
+                SourceQuerySpec(
+                    source_name=source_name,
+                    query_text=query_plan.query_text,
+                    target_topics=query_plan.target_topics,
+                    max_results=per_source_limit,
+                    strategy_name="fallback_registered_source_query",
+                    params={},
+                )
+                for source_name in sorted(enabled_sources)
+            ]
 
-        return [
-            SourceQuerySpec(
-                source_name=source_name,
-                query_text=query_plan.query_text,
-                target_topics=query_plan.target_topics,
-                max_results=per_source_limit,
-                strategy_name="fallback_registered_source_query",
-                params={},
-            )
-            for source_name in sorted(enabled_sources)
+        budgeted_specs = self._prioritize_source_specs(blackboard, specs)
+        fresh_specs = [
+            spec
+            for spec in budgeted_specs
+            if self._source_query_key(spec) not in self._executed_source_query_keys
         ]
+        selected_specs = fresh_specs or budgeted_specs[: max(1, min(4, len(budgeted_specs)))]
+        self._latest_source_budget_audit = self._source_budget_audit(blackboard, selected_specs)
+        return selected_specs
+
+    def _prioritize_source_specs(
+        self,
+        blackboard: IntelRunBlackboard,
+        specs: list[SourceQuerySpec],
+    ) -> list[SourceQuerySpec]:
+        grouped: dict[str, list[SourceQuerySpec]] = {}
+        for spec in specs:
+            grouped.setdefault(spec.source_name, []).append(spec)
+
+        prioritized: list[SourceQuerySpec] = []
+        ordered_sources = sorted(
+            grouped,
+            key=lambda source_name: (
+                blackboard.source_scores.get(source_name, 1.0),
+                -blackboard.source_low_yield_streaks.get(source_name, 0),
+                source_name,
+            ),
+            reverse=True,
+        )
+        for source_name in ordered_sources:
+            source_specs = grouped[source_name]
+            score = blackboard.source_scores.get(source_name, 1.0)
+            streak = blackboard.source_low_yield_streaks.get(source_name, 0)
+            query_limit = self._source_query_budget(len(source_specs), score, streak)
+            for spec in source_specs[:query_limit]:
+                prioritized.append(self._with_source_budget(spec, score, streak))
+        return prioritized
+
+    def _source_query_budget(self, available_count: int, score: float, low_yield_streak: int) -> int:
+        if available_count <= 1:
+            return available_count
+        if low_yield_streak >= 3:
+            return 1
+        if score < 0.75 or low_yield_streak >= 2:
+            return max(1, math.floor(available_count * 0.5))
+        if score >= 1.25:
+            return min(available_count, max(1, math.ceil(available_count * 1.25)))
+        return available_count
+
+    def _with_source_budget(
+        self,
+        spec: SourceQuerySpec,
+        score: float,
+        low_yield_streak: int,
+    ) -> SourceQuerySpec:
+        multiplier = 1.0
+        if score >= 1.25 and low_yield_streak == 0:
+            multiplier = 1.5
+        elif low_yield_streak >= 3:
+            multiplier = 0.25
+        elif score < 0.75 or low_yield_streak >= 2:
+            multiplier = 0.5
+        adjusted_max_results = max(
+            1,
+            min(self.max_results_per_round, math.ceil(spec.max_results * multiplier)),
+        )
+        return SourceQuerySpec(
+            source_name=spec.source_name,
+            query_text=spec.query_text,
+            target_topics=spec.target_topics,
+            max_results=adjusted_max_results,
+            strategy_name=spec.strategy_name,
+            params=spec.params,
+        )
+
+    def _source_budget_audit(
+        self,
+        blackboard: IntelRunBlackboard,
+        specs: list[SourceQuerySpec],
+    ) -> dict[str, Any]:
+        allocation: dict[str, dict[str, Any]] = {}
+        for spec in specs:
+            source_allocation = allocation.setdefault(
+                spec.source_name,
+                {
+                    "query_count": 0,
+                    "max_results_total": 0,
+                    "max_results_per_query": [],
+                    "low_yield_streak": blackboard.source_low_yield_streaks.get(spec.source_name, 0),
+                    "score": round(blackboard.source_scores.get(spec.source_name, 1.0), 4),
+                },
+            )
+            source_allocation["query_count"] += 1
+            source_allocation["max_results_total"] += spec.max_results
+            source_allocation["max_results_per_query"].append(spec.max_results)
+        return {
+            "source_scores": {
+                source_name: round(score, 4)
+                for source_name, score in sorted(blackboard.source_scores.items())
+            },
+            "budget_allocation": allocation,
+        }
+
+    def _ensure_source_scores(self, blackboard: IntelRunBlackboard) -> None:
+        for source in blackboard.approved_sources:
+            if not source.enabled:
+                continue
+            blackboard.source_scores.setdefault(source.source_name, 1.0)
+            blackboard.source_low_yield_streaks.setdefault(source.source_name, 0)
+
+    def _update_source_scores_from_yield(
+        self,
+        blackboard: IntelRunBlackboard,
+        yield_assessment: CollectionYieldAssessment,
+    ) -> None:
+        self._ensure_source_scores(blackboard)
+        for metric in yield_assessment.per_source_metrics:
+            old_score = blackboard.source_scores.get(metric.source_name, 1.0)
+            result_penalty = 1.0 if metric.result_count == 0 else 0.4 if metric.result_count < 2 else 0.0
+            reward = (0.35 * metric.novelty_score) + (0.45 * metric.evidence_quality)
+            penalty = (
+                (0.30 * result_penalty)
+                + (0.30 * (1.0 - metric.evidence_quality))
+                + (0.25 * metric.duplicate_ratio)
+                + (0.15 * metric.noise_ratio)
+            )
+            delta = max(-0.35, min(0.35, reward - penalty))
+            blackboard.source_scores[metric.source_name] = max(0.1, min(2.0, old_score + delta))
+            low_yield = (
+                metric.result_count == 0
+                or metric.evidence_quality < 0.4
+                or metric.duplicate_ratio >= 0.75
+            )
+            if low_yield:
+                blackboard.source_low_yield_streaks[metric.source_name] = (
+                    blackboard.source_low_yield_streaks.get(metric.source_name, 0) + 1
+                )
+            else:
+                blackboard.source_low_yield_streaks[metric.source_name] = 0
+
+        if blackboard.query_history:
+            blackboard.query_history[-1].metadata["post_yield_source_scores"] = {
+                source_name: round(score, 4)
+                for source_name, score in sorted(blackboard.source_scores.items())
+            }
+            blackboard.query_history[-1].metadata["source_low_yield_streaks"] = dict(
+                sorted(blackboard.source_low_yield_streaks.items())
+            )
+
+    def _apply_source_priority_changes(
+        self,
+        blackboard: IntelRunBlackboard,
+        source_priority_changes: dict[str, Any],
+    ) -> None:
+        self._ensure_source_scores(blackboard)
+        for source_name, change in source_priority_changes.items():
+            old_score = blackboard.source_scores.get(source_name, 1.0)
+            if isinstance(change, (int, float)):
+                new_score = old_score + float(change)
+            elif isinstance(change, str):
+                lowered = change.lower()
+                if lowered in {"up", "increase", "boost", "higher", "high"}:
+                    new_score = old_score + 0.2
+                elif lowered in {"down", "decrease", "reduce", "lower", "low"}:
+                    new_score = old_score - 0.2
+                else:
+                    continue
+            elif isinstance(change, dict):
+                if "score" in change:
+                    new_score = float(change["score"])
+                elif "delta" in change:
+                    new_score = old_score + float(change["delta"])
+                elif "priority" in change:
+                    priority = str(change["priority"]).lower()
+                    new_score = old_score + (0.2 if priority in {"high", "boost", "up"} else -0.2)
+                else:
+                    continue
+            else:
+                continue
+            blackboard.source_scores[source_name] = max(0.1, min(2.0, new_score))
+
+        if blackboard.query_history:
+            blackboard.query_history[-1].metadata["post_reflection_source_scores"] = {
+                source_name: round(score, 4)
+                for source_name, score in sorted(blackboard.source_scores.items())
+            }
 
     def _nvd_query_specs(self, focus_topics: list[str], round_index: int) -> list[SourceQuerySpec]:
         query_limit = self._nvd_query_limit()
@@ -568,6 +755,7 @@ class RealIntelRunController:
                     "source_name": spec.source_name,
                     "strategy_name": spec.strategy_name,
                     "query_text": spec.query_text,
+                    "max_results": spec.max_results,
                     "params": {
                         key: value for key, value in spec.params.items() if value not in (None, [], "")
                     },
@@ -668,6 +856,10 @@ class RealIntelRunController:
                     "batch_item_ids": [item.item_id for item in latest_batch.items],
                     "failed_sources": failed_sources,
                     "source_query_plans": source_query_plans,
+                    "source_scores": dict(self._latest_source_budget_audit.get("source_scores", {})),
+                    "source_budget_allocation": dict(
+                        self._latest_source_budget_audit.get("budget_allocation", {})
+                    ),
                 },
             )
         )
@@ -710,10 +902,23 @@ class RealIntelRunController:
 
         history = blackboard.query_history[-1]
         metrics = []
+        stats_by_source: dict[str, list[SourceExecutionStat]] = {}
         for stat in latest_batch.source_stats:
+            stats_by_source.setdefault(stat.source_name, []).append(stat)
+        for source_name, source_stats in stats_by_source.items():
             source_items = [
-                item for item in latest_batch.items if item.source_name == stat.source_name
+                item for item in latest_batch.items if item.source_name == source_name
             ]
+            source_item_ids = {item.item_id for item in source_items}
+            source_duplicate_count = sum(
+                1
+                for item_id in history.metadata.get("batch_item_ids", [])
+                if item_id in source_item_ids and item_id not in history.metadata.get("new_item_ids", [])
+            )
+            source_low_relevance_count = sum(
+                1 for item in source_items if item.relevance_score < 0.5
+            )
+            result_count = sum(stat.result_count for stat in source_stats)
             evidence_quality = (
                 sum(item.relevance_score for item in source_items) / len(source_items)
                 if source_items
@@ -721,13 +926,25 @@ class RealIntelRunController:
             )
             metrics.append(
                 SourceYieldMetric(
-                    source_name=stat.source_name,
-                    result_count=stat.result_count,
-                    novelty_score=history.novelty_score,
-                    noise_ratio=history.noise_ratio,
-                    duplicate_ratio=history.duplicate_ratio,
+                    source_name=source_name,
+                    result_count=result_count,
+                    novelty_score=(
+                        max(0, len(source_items) - source_duplicate_count) / len(source_items)
+                        if source_items
+                        else 0.0
+                    ),
+                    noise_ratio=(
+                        source_low_relevance_count / len(source_items)
+                        if source_items
+                        else 0.0
+                    ),
+                    duplicate_ratio=(
+                        source_duplicate_count / len(source_items)
+                        if source_items
+                        else 0.0
+                    ),
                     evidence_quality=evidence_quality,
-                    notes=stat.notes,
+                    notes=" | ".join(stat.notes or "" for stat in source_stats if stat.notes),
                 )
             )
         return CollectionYieldAssessment(
@@ -1060,6 +1277,7 @@ class RealIntelRunController:
                     )
             return SearchReflectionDecision(
                 rewritten_queries=rewritten_queries,
+                source_priority_changes=self._source_priority_changes_from_yield(yield_assessment),
                 topics_to_expand=parsed.target_topics,
                 topics_to_stop=parsed.topics_to_stop,
                 rationale=parsed.rationale,
@@ -1074,6 +1292,7 @@ class RealIntelRunController:
         if not high_roi_gaps:
             return SearchReflectionDecision(
                 rewritten_queries=[],
+                source_priority_changes=self._source_priority_changes_from_yield(yield_assessment),
                 topics_to_stop=self.target_topics,
                 rationale="No high-ROI coverage gaps remain.",
                 confidence=0.75,
@@ -1099,12 +1318,35 @@ class RealIntelRunController:
             for topic in query.target_topics
         ]
         return SearchReflectionDecision(
-            rewritten_queries=rewritten_queries,
+            rewritten_queries=[query],
+            source_priority_changes=self._source_priority_changes_from_yield(yield_assessment),
             topics_to_expand=topics,
             topics_to_stop=sorted(set(self.target_topics) - set(topics)),
             rationale="Coverage gaps remain, so rewrite query for another real-source round.",
             confidence=0.8,
         )
+
+    def _source_priority_changes_from_yield(
+        self,
+        yield_assessment: CollectionYieldAssessment,
+    ) -> dict[str, Any]:
+        changes: dict[str, Any] = {}
+        for metric in yield_assessment.per_source_metrics:
+            if metric.novelty_score >= 0.45 and metric.evidence_quality >= 0.65:
+                changes[metric.source_name] = {
+                    "delta": 0.1,
+                    "reason": "high novelty and evidence quality",
+                }
+            elif (
+                metric.result_count == 0
+                or metric.evidence_quality < 0.35
+                or metric.duplicate_ratio >= 0.75
+            ):
+                changes[metric.source_name] = {
+                    "delta": -0.1,
+                    "reason": "low result count, weak evidence, or repeated findings",
+                }
+        return changes
 
     def _non_repeating_gap_query(
         self,

@@ -49,6 +49,8 @@ class IntelRunBlackboard(FlexibleModel):
     budget: RunBudget = Field(default_factory=RunBudget)
     metrics: RunMetrics = Field(default_factory=RunMetrics)
     approved_sources: list[ApprovedSource] = Field(default_factory=list)
+    source_scores: dict[str, float] = Field(default_factory=dict)
+    source_low_yield_streaks: dict[str, int] = Field(default_factory=dict)
     source_proposals: list[SourceProposal] = Field(default_factory=list)
     query_history: list[QueryHistoryEntry] = Field(default_factory=list)
     raw_items: list[RawIntelItem] = Field(default_factory=list)
