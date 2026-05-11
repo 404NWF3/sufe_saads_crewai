@@ -52,8 +52,88 @@ DEFAULT_OSV_PACKAGE_TARGETS = [
     {"ecosystem": "PyPI", "name": "mlflow"},
     {"ecosystem": "PyPI", "name": "vllm"},
     {"ecosystem": "PyPI", "name": "open-webui"},
+    {"ecosystem": "PyPI", "name": "langflow"},
+    {"ecosystem": "PyPI", "name": "chromadb"},
+    {"ecosystem": "PyPI", "name": "qdrant-client"},
+    {"ecosystem": "PyPI", "name": "weaviate-client"},
+    {"ecosystem": "PyPI", "name": "jupyter-server"},
+    {"ecosystem": "PyPI", "name": "ray"},
+    {"ecosystem": "npm", "name": "flowise"},
     {"ecosystem": "npm", "name": "langchain"},
 ]
+
+NVD_AI_ATTACK_KEYWORDS = [
+    "prompt injection",
+    "indirect prompt injection",
+    "jailbreak",
+    "large language model",
+    "LLM",
+    "chatbot",
+    "model extraction",
+    "model inversion",
+    "data poisoning",
+    "adversarial example",
+    "training data",
+    "RAG",
+    "embedding",
+    "vector database",
+]
+
+NVD_AI_PRODUCT_KEYWORDS = [
+    "LangChain",
+    "LlamaIndex",
+    "Ollama",
+    "vLLM",
+    "llama.cpp",
+    "Hugging Face",
+    "Transformers",
+    "MLflow",
+    "Gradio",
+    "Jupyter",
+    "Ray",
+    "Kubeflow",
+    "TensorFlow",
+    "PyTorch",
+    "NVIDIA Triton",
+    "ONNX",
+    "Dify",
+    "Langflow",
+    "Flowise",
+    "Milvus",
+    "Qdrant",
+    "Weaviate",
+    "Chroma",
+]
+
+NVD_AI_RELEVANT_CWE_IDS = [
+    "CWE-20",
+    "CWE-22",
+    "CWE-78",
+    "CWE-79",
+    "CWE-89",
+    "CWE-94",
+    "CWE-200",
+    "CWE-287",
+    "CWE-434",
+    "CWE-502",
+    "CWE-918",
+]
+
+NVD_EXACT_MATCH_KEYWORDS = {
+    "prompt injection",
+    "indirect prompt injection",
+    "large language model",
+    "machine learning",
+    "artificial intelligence",
+    "model extraction",
+    "model inversion",
+    "data poisoning",
+    "adversarial example",
+    "training data",
+    "hugging face",
+    "nvidia triton",
+    "vector database",
+}
 
 
 def default_registered_api_sources() -> list[ApprovedSource]:
@@ -132,6 +212,19 @@ class RegisteredApiSourceSearchInput(BaseModel):
     )
     nvd_has_kev: bool = Field(default=False, description="Filter NVD results to CISA KEV CVEs.")
     nvd_cve_id: str | None = Field(default=None, description="Optional CVE ID for NVD lookup.")
+    nvd_keyword_exact_match: bool = Field(
+        default=False,
+        description="Use NVD keywordExactMatch for phrase searches.",
+    )
+    nvd_cwe_id: str | None = Field(default=None, description="Optional NVD cweId filter.")
+    nvd_cvss_v3_severity: str | None = Field(
+        default=None,
+        description="Optional NVD cvssV3Severity filter, e.g. HIGH or CRITICAL.",
+    )
+    nvd_no_rejected: bool = Field(
+        default=True,
+        description="Add noRejected to exclude rejected CVE records.",
+    )
     arxiv_search_query: str | None = Field(
         default=None,
         description="Optional arXiv search_query override.",
@@ -171,6 +264,10 @@ class RegisteredApiSourceSearchTool(BaseTool):
         nvd_pub_end_date: str | None = None,
         nvd_has_kev: bool = False,
         nvd_cve_id: str | None = None,
+        nvd_keyword_exact_match: bool = False,
+        nvd_cwe_id: str | None = None,
+        nvd_cvss_v3_severity: str | None = None,
+        nvd_no_rejected: bool = True,
         arxiv_search_query: str | None = None,
         cisa_cve_ids: list[str] | None = None,
         cisa_keyword: str | None = None,
@@ -216,6 +313,10 @@ class RegisteredApiSourceSearchTool(BaseTool):
                     nvd_pub_end_date=nvd_pub_end_date,
                     nvd_has_kev=nvd_has_kev,
                     nvd_cve_id=nvd_cve_id,
+                    nvd_keyword_exact_match=nvd_keyword_exact_match,
+                    nvd_cwe_id=nvd_cwe_id,
+                    nvd_cvss_v3_severity=nvd_cvss_v3_severity,
+                    nvd_no_rejected=nvd_no_rejected,
                     arxiv_search_query=arxiv_search_query,
                     cisa_cve_ids=cisa_cve_ids or [],
                     cisa_keyword=cisa_keyword,
@@ -280,6 +381,10 @@ class RegisteredApiSourceSearchTool(BaseTool):
                 pub_end_date=kwargs.get("nvd_pub_end_date"),
                 has_kev=bool(kwargs.get("nvd_has_kev")),
                 cve_id=kwargs.get("nvd_cve_id"),
+                keyword_exact_match=bool(kwargs.get("nvd_keyword_exact_match")),
+                cwe_id=kwargs.get("nvd_cwe_id"),
+                cvss_v3_severity=kwargs.get("nvd_cvss_v3_severity"),
+                no_rejected=bool(kwargs.get("nvd_no_rejected", True)),
             )
         if source_name == "arxiv_api":
             return search_arxiv_api(
@@ -320,6 +425,10 @@ def search_nvd_cve_api(
     pub_end_date: str | None = None,
     has_kev: bool = False,
     cve_id: str | None = None,
+    keyword_exact_match: bool = False,
+    cwe_id: str | None = None,
+    cvss_v3_severity: str | None = None,
+    no_rejected: bool = True,
 ) -> list[RawIntelItem]:
     params = build_nvd_query_params(
         query_text=query_text,
@@ -329,6 +438,10 @@ def search_nvd_cve_api(
         pub_end_date=pub_end_date,
         has_kev=has_kev,
         cve_id=cve_id,
+        keyword_exact_match=keyword_exact_match,
+        cwe_id=cwe_id,
+        cvss_v3_severity=cvss_v3_severity,
+        no_rejected=no_rejected,
     )
     data = _fetch_json(_url_with_params(NVD_CVE_API_URL, params), timeout_seconds=timeout_seconds)
     return parse_nvd_items(data)
@@ -420,6 +533,10 @@ def build_nvd_query_params(
     pub_end_date: str | None = None,
     has_kev: bool = False,
     cve_id: str | None = None,
+    keyword_exact_match: bool = False,
+    cwe_id: str | None = None,
+    cvss_v3_severity: str | None = None,
+    no_rejected: bool = True,
 ) -> dict[str, str | None]:
     cve = cve_id or _extract_first_cve_id(query_text)
     params: dict[str, str | None] = {"resultsPerPage": str(max_results), "startIndex": "0"}
@@ -427,11 +544,19 @@ def build_nvd_query_params(
         params["cveId"] = cve
     else:
         params["keywordSearch"] = keyword_search or _compact_keyword_query(query_text)
+        if keyword_exact_match and " " in params["keywordSearch"]:
+            params["keywordExactMatch"] = None
+    if cwe_id:
+        params["cweId"] = cwe_id
+    if cvss_v3_severity:
+        params["cvssV3Severity"] = cvss_v3_severity.upper()
     if pub_start_date and pub_end_date:
         params["pubStartDate"] = pub_start_date
         params["pubEndDate"] = pub_end_date
     if has_kev:
         params["hasKev"] = None
+    if no_rejected:
+        params["noRejected"] = None
     return params
 
 
@@ -475,10 +600,17 @@ def parse_nvd_items(data: dict[str, Any]) -> list[RawIntelItem]:
             continue
         description = _first_english_description(cve.get("descriptions", []))
         published_at = _parse_datetime(cve.get("published"))
-        references = cve.get("references", {}).get("referenceData", [])
+        references = _extract_nvd_references(cve)
         primary_ref = references[0].get("url") if references else f"{NVD_CVE_API_URL}?cveId={cve_id}"
         title = f"{cve_id}: {_shorten(description, 120)}"
-        topics = detect_topics(description)
+        cwe_ids = _extract_nvd_cwe_ids(cve)
+        cpe_products = _extract_nvd_cpe_products(cve)
+        nvd_text = " ".join([description, " ".join(cpe_products)])
+        topics = detect_topics(nvd_text)
+        ai_category, matched_terms = _classify_ai_vulnerability(nvd_text, cwe_ids)
+        relevance = _estimate_relevance(nvd_text, topics)
+        if ai_category != "uncategorized":
+            relevance = max(relevance, 0.68)
         items.append(
             RawIntelItem(
                 item_id=f"nvd:{cve_id.lower()}",
@@ -488,11 +620,16 @@ def parse_nvd_items(data: dict[str, Any]) -> list[RawIntelItem]:
                 summary=description,
                 published_at=published_at,
                 raw_text=description,
-                relevance_score=_estimate_relevance(description, topics),
+                relevance_score=relevance,
                 extraction_notes="Parsed from NVD CVE API 2.0 response.",
                 metadata={
                     "cve_id": cve_id,
                     "topics": topics,
+                    "ai_intel_category": ai_category,
+                    "matched_ai_terms": matched_terms,
+                    "cwe_ids": cwe_ids,
+                    "cvss_v3_severity": _extract_nvd_cvss_v3_severity(cve),
+                    "cpe_products": cpe_products,
                     "nvd_url": f"{NVD_CVE_API_URL}?cveId={cve_id}",
                     "source_type": "security_db",
                 },
@@ -737,6 +874,72 @@ def _extract_first_cve_id(query_text: str) -> str | None:
     if cve_match:
         return cve_match.group(0).upper()
     return None
+
+
+def _extract_nvd_cwe_ids(cve: dict[str, Any]) -> list[str]:
+    cwe_ids: set[str] = set()
+    for weakness in cve.get("weaknesses", []):
+        for description in weakness.get("description", []):
+            value = str(description.get("value", ""))
+            if value.startswith("CWE-"):
+                cwe_ids.add(value)
+    return sorted(cwe_ids)
+
+
+def _extract_nvd_references(cve: dict[str, Any]) -> list[dict[str, Any]]:
+    raw_references = cve.get("references", [])
+    if isinstance(raw_references, dict):
+        reference_data = raw_references.get("referenceData", [])
+        return reference_data if isinstance(reference_data, list) else []
+    if isinstance(raw_references, list):
+        return [item for item in raw_references if isinstance(item, dict)]
+    return []
+
+
+def _extract_nvd_cvss_v3_severity(cve: dict[str, Any]) -> str | None:
+    metrics = cve.get("metrics", {})
+    for key in ("cvssMetricV31", "cvssMetricV30"):
+        values = metrics.get(key) or []
+        if not values:
+            continue
+        severity = values[0].get("cvssData", {}).get("baseSeverity")
+        if severity:
+            return str(severity)
+    return None
+
+
+def _extract_nvd_cpe_products(cve: dict[str, Any]) -> list[str]:
+    products: set[str] = set()
+    for configuration in cve.get("configurations", []):
+        for node in configuration.get("nodes", []):
+            for match in node.get("cpeMatch", []):
+                criteria = str(match.get("criteria", ""))
+                parts = criteria.split(":")
+                if len(parts) >= 6:
+                    vendor = parts[3].replace("_", " ")
+                    product = parts[4].replace("_", " ")
+                    products.add(f"{vendor} {product}".strip())
+    return sorted(products)
+
+
+def _classify_ai_vulnerability(text: str, cwe_ids: list[str]) -> tuple[str, list[str]]:
+    lower_text = text.lower()
+    attack_terms = [
+        term for term in NVD_AI_ATTACK_KEYWORDS if term.lower() in lower_text
+    ]
+    product_terms = [
+        term for term in NVD_AI_PRODUCT_KEYWORDS if term.lower() in lower_text
+    ]
+    cwe_terms = [cwe_id for cwe_id in cwe_ids if cwe_id in NVD_AI_RELEVANT_CWE_IDS]
+
+    matched = sorted(set(attack_terms + product_terms + cwe_terms))
+    if attack_terms:
+        return "ai_native_attack", matched
+    if product_terms and cwe_terms:
+        return "ai_application_infrastructure_vulnerability", matched
+    if product_terms:
+        return "ai_data_model_supply_chain", matched
+    return "uncategorized", matched
 
 
 def _first_english_description(descriptions: list[dict[str, Any]]) -> str:

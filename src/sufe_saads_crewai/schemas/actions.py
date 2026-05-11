@@ -41,6 +41,7 @@ class SearchQueryPlan(FlexibleModel):
     round_index: int = Field(default=0, ge=0)
     locale: str | None = None
     search_mode: str | None = None
+    expected_coverage_gain: Score = 0.0
 
 
 class GapFillPlan(FlexibleModel):

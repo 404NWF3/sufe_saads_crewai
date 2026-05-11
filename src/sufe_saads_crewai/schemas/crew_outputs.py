@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 ActionName = Literal[
@@ -10,6 +10,7 @@ ActionName = Literal[
     "SEARCH_REGISTERED_SOURCE",
     "ASSESS_COLLECTION_YIELD",
     "ANALYZE_COVERAGE_GAPS",
+    "EXPAND_SEARCH_SEMANTICS",
     "REFLECT_SEARCH_STRATEGY",
     "PROPOSE_NEW_SOURCE",
     "STOP",
@@ -26,6 +27,12 @@ SourceKind = Literal[
     "web",
     "security_db",
     "research",
+]
+RegisteredSourceName = Literal[
+    "nvd_cve_api",
+    "arxiv_api",
+    "cisa_kev_json",
+    "osv_dev_api",
 ]
 
 
@@ -116,9 +123,34 @@ class CoverageAnalysisOutput(StrictCrewOutput):
     analysis_rationale: str
 
 
+class SourceSemanticTerms(StrictCrewOutput):
+    source_name: RegisteredSourceName
+    positive_terms: list[str]
+    negative_terms: list[str]
+    query_templates: list[str]
+    parameter_hints: list[str]
+    rationale: str
+
+
+class SemanticGapExpansion(StrictCrewOutput):
+    gap_topic: str
+    expanded_terms: list[str]
+    source_specific_terms: list[SourceSemanticTerms]
+    global_negative_terms: list[str]
+    rationale: str
+    confidence: float
+
+
+class SearchSemanticExpansionOutput(StrictCrewOutput):
+    expansions: list[SemanticGapExpansion]
+    overall_rationale: str
+    confidence: float
+
+
 class RewriteDecisionOutput(StrictCrewOutput):
     should_rewrite: bool
     rewritten_query: str | None
+    rewritten_queries: list[str] = Field(default_factory=list)
     target_topics: list[str]
     topics_to_stop: list[str]
     rationale: str

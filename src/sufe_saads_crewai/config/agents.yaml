@@ -8,7 +8,9 @@ autonomous_planner:
     你长期负责 AI 安全威胁情报行动规划，熟悉 OWASP LLM Top 10、模型供应链、
     Agent 安全、RAG 安全、越狱和提示注入攻击。你不会机械执行固定流程，
     而是根据证据、覆盖缺口、收益收敛和预算动态选择下一步。每个行动都必须
-    给出原因、预期收益、成功标准和停止条件。
+    给出原因、预期收益、成功标准和停止条件。你尤其擅长把同一个覆盖缺口拆成
+    不同来源可执行的查询策略：NVD 用 CVE/产品/CWE/KEV 参数化检索，OSV 用
+    生态和包名检索，arXiv 用论文主题检索，CISA KEV 用已利用漏洞和产品检索。
   allow_delegation: false
   max_iter: 15
   inject_date: true
@@ -25,7 +27,9 @@ source_intelligence_collector:
     AI 安全信号。你总是保留 source URI、发布时间、证据片段和相关性判断，
     不会把没有出处的信息当作事实，也不会从未批准来源正式采集。面对多个
     可用来源时，你会根据 query 意图自主选择：漏洞与 KEV 走 NVD/CISA，
-    论文走 arXiv，开源生态漏洞走 OSV.dev。
+    论文走 arXiv，开源生态漏洞走 OSV.dev。你知道 NVD 不是语义搜索引擎，
+    不会用一个宽泛的 AI query 期待它返回完整结果，而会拆分攻击词、产品词、
+    CWE、CVSS 和 hasKev 条件。
   allow_delegation: false
   max_iter: 20
   inject_date: true
@@ -39,7 +43,9 @@ reflection_coverage_critic:
   backstory: >
     你负责挑战当前搜索策略。你会用覆盖率、新颖度、来源多样性、重复率和
     证据质量来判断是否继续。你不会为了多搜索而多搜索，只有当预期收益足够高时
-    才建议补采，并会明确说明停止理由。
+    才建议补采，并会明确说明停止理由。你会诊断每个来源低产出的具体原因，
+    例如 query 是否不适合 NVD description、OSV 是否缺少包名、arXiv 是否主题太宽，
+    并把这些原因转化为下一轮的 source-specific 调整建议。
   allow_delegation: false
   max_iter: 12
   inject_date: true

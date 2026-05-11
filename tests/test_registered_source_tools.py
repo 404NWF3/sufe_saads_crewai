@@ -6,6 +6,7 @@ from sufe_saads_crewai.crew import SufeSaadsCrewai
 from sufe_saads_crewai.tools import RegisteredApiSourceSearchTool, default_registered_api_sources
 from sufe_saads_crewai.tools.registered_source_tools import (
     DEFAULT_OSV_PACKAGE_TARGETS,
+    NVD_EXACT_MATCH_KEYWORDS,
     build_arxiv_search_query,
     build_nvd_query_params,
     build_osv_query_payload,
@@ -42,6 +43,9 @@ class RegisteredSourceToolTests(unittest.TestCase):
             pub_start_date="2026-01-01T00:00:00.000",
             pub_end_date="2026-04-30T00:00:00.000",
             has_kev=True,
+            keyword_exact_match=True,
+            cwe_id="CWE-94",
+            cvss_v3_severity="critical",
         )
 
         self.assertEqual(params["keywordSearch"], "langchain")
@@ -49,6 +53,20 @@ class RegisteredSourceToolTests(unittest.TestCase):
         self.assertEqual(params["pubStartDate"], "2026-01-01T00:00:00.000")
         self.assertEqual(params["pubEndDate"], "2026-04-30T00:00:00.000")
         self.assertIn("hasKev", params)
+        self.assertIn("noRejected", params)
+        self.assertEqual(params["cweId"], "CWE-94")
+        self.assertEqual(params["cvssV3Severity"], "CRITICAL")
+
+    def test_nvd_query_params_support_exact_phrase_search(self) -> None:
+        params = build_nvd_query_params(
+            query_text="prompt injection",
+            max_results=10,
+            keyword_search="prompt injection",
+            keyword_exact_match=True,
+        )
+
+        self.assertIn("keywordExactMatch", params)
+        self.assertIn("prompt injection", NVD_EXACT_MATCH_KEYWORDS)
 
     def test_nvd_query_params_support_cve_id_lookup(self) -> None:
         params = build_nvd_query_params(
@@ -102,6 +120,9 @@ class RegisteredSourceToolTests(unittest.TestCase):
                                 }
                             ],
                             "references": {"referenceData": [{"url": "https://example.test/cve"}]},
+                            "weaknesses": [
+                                {"description": [{"lang": "en", "value": "CWE-94"}]}
+                            ],
                         }
                     }
                 ]
@@ -160,6 +181,11 @@ class RegisteredSourceToolTests(unittest.TestCase):
         self.assertEqual(cisa_items[0].source_name, "cisa_kev_json")
         self.assertEqual(osv_items[0].source_name, "osv_dev_api")
         self.assertIn("prompt injection", nvd_items[0].metadata["topics"])
+        self.assertEqual(
+            nvd_items[0].metadata["ai_intel_category"],
+            "ai_native_attack",
+        )
+        self.assertIn("CWE-94", nvd_items[0].metadata["cwe_ids"])
         self.assertIn("rag poisoning", arxiv_items[0].metadata["topics"])
         self.assertEqual(osv_items[0].metadata["ecosystems"], ["PyPI"])
 

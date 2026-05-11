@@ -12,6 +12,7 @@ from sufe_saads_crewai.schemas import (
     CoverageAnalysisOutput,
     PlannerDecisionOutput,
     RewriteDecisionOutput,
+    SearchSemanticExpansionOutput,
     SourceProposalBatchOutput,
     YieldAssessmentOutput,
 )
@@ -91,6 +92,13 @@ class SufeSaadsCrewai:
         return Task(
             config=self.tasks_config["analyze_coverage_gaps_task"],  # type: ignore[index]
             output_pydantic=CoverageAnalysisOutput,
+        )
+
+    @task
+    def expand_search_semantics_task(self) -> Task:
+        return Task(
+            config=self.tasks_config["expand_search_semantics_task"],  # type: ignore[index]
+            output_pydantic=SearchSemanticExpansionOutput,
         )
 
     @task
