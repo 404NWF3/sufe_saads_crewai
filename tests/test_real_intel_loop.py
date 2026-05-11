@@ -13,6 +13,8 @@ from sufe_saads_crewai.schemas import (
     RawIntelItem,
     RawIntelItemBatch,
     SearchQueryPlan,
+    SearchCompletenessAssessment,
+    SearchReflectionDecision,
     SourceExecutionStat,
 )
 
