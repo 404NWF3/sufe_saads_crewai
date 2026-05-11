@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from unittest.mock import patch
 import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -13,8 +14,8 @@ from sufe_saads_crewai.persistence import JsonIntelRunStore
 from sufe_saads_crewai.schemas import (
     RawIntelItem,
     RawIntelItemBatch,
-    SearchCompletenessAssessment,
     SearchQueryPlan,
+    SearchCompletenessAssessment,
     SearchReflectionDecision,
     SourceExecutionStat,
 )
@@ -121,7 +122,8 @@ class FakeRegisteredSourceTool:
 
 class RealIntelLoopTests(unittest.TestCase):
     def test_production_agents_use_glm_and_collector_has_no_mock_tools(self) -> None:
-        crew = SufeSaadsCrewai().crew()
+        with patch.dict("os.environ", {"GLM_API_KEY": "test-glm-key"}):
+            crew = SufeSaadsCrewai().crew()
         models = [getattr(agent.llm, "model", "") for agent in crew.agents]
         collector = next(
             agent for agent in crew.agents if "多源情报采集员" in agent.role
@@ -179,81 +181,51 @@ class RealIntelLoopTests(unittest.TestCase):
                 any(plan["source_name"] == "osv_dev_api" for plan in first_round_plans)
             )
 
-    def test_multiple_rewritten_queries_are_scheduled_after_first_rewrite(self) -> None:
-        class MultiRewriteController(RealIntelRunController):
-            def _rewrite_search_strategy(self, blackboard, yield_assessment, gap_analysis):
-                if len(blackboard.query_history) != 1:
-                    return SearchReflectionDecision(
-                        rewritten_queries=[],
-                        rationale="No additional rewrites for deterministic frontier test.",
-                        confidence=0.9,
-                    )
+    def test_real_controller_stops_before_max_rounds_when_coverage_is_sufficient(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temp_dir:
+            agents = RealIntelAgentSet(
+                planner=FailingAgent(),
+                collector=FailingAgent(),
+                critic=FailingAgent(),
+            )
+            result = RealIntelRunController(
+                run_goal="Collect prompt injection intelligence",
+                initial_query="LLM prompt injection",
+                max_rounds=5,
+                run_store=JsonIntelRunStore(Path(temp_dir) / "intel_runs"),
+                agents=agents,
+                source_tool=FakeRegisteredSourceTool(),
+                target_topics=["prompt injection"],
+            ).run()
 
-                source_names = [
-                    source.source_name
-                    for source in blackboard.approved_sources
-                    if source.enabled
-                ]
-                return SearchReflectionDecision(
-                    rewritten_queries=[
-                        SearchQueryPlan(
-                            query_text="low priority rewritten query",
-                            source_names=source_names,
-                            target_topics=["prompt injection"],
-                            query_intent="gap_fill",
-                            max_results=self.max_results_per_round,
-                            priority="high",
-                            round_index=1,
-                            expected_coverage_gain=0.6,
-                        ),
-                        SearchQueryPlan(
-                            query_text="high priority rewritten query",
-                            source_names=source_names,
-                            target_topics=["agent tool abuse"],
-                            query_intent="gap_fill",
-                            max_results=self.max_results_per_round,
-                            priority="critical",
-                            round_index=1,
-                            expected_coverage_gain=0.9,
-                        ),
-                    ],
-                    topics_to_expand=["prompt injection", "agent tool abuse"],
-                    rationale="Queue multiple rewritten queries for frontier scheduling.",
-                    confidence=0.9,
-                )
+            self.assertEqual(len(result.query_history), 1)
+            self.assertEqual(result.action_history[-1].action_type, "STOP")
+            self.assertIn(
+                "Target coverage score reached", result.action_history[-1].rationale
+            )
 
-            def _evaluate_search_completeness(
-                self,
-                blackboard,
-                gap_analysis,
-                reflection,
-                round_index,
-            ):
-                should_continue = len(blackboard.query_history) < 3
-                return SearchCompletenessAssessment(
-                    completeness_score=0.2,
-                    should_continue=should_continue,
-                    stop_rationale=None if should_continue else "frontier test complete",
-                )
-
+    def test_real_controller_continues_when_high_roi_gap_exists(self) -> None:
         with TemporaryDirectory() as temp_dir:
             agents = RealIntelAgentSet(
                 planner=FailingAgent(),
                 collector=FailingAgent(),
                 critic=RecommendedQueryCriticAgent(recommended_query),
             )
-            with patch.dict(os.environ, {"INTEL_ENABLE_AGENT_KICKOFF": "true"}):
-                result = RealIntelRunController(
-                    run_goal="Collect LLM security intelligence",
-                    initial_query="LLM prompt injection",
-                    max_rounds=2,
-                    run_store=JsonIntelRunStore(Path(temp_dir) / "intel_runs"),
-                    agents=agents,
-                    source_tool=FakeRegisteredSourceTool(),
-                ).run()
+            result = RealIntelRunController(
+                run_goal="Collect prompt injection and data leakage intelligence",
+                initial_query="LLM prompt injection",
+                max_rounds=2,
+                run_store=JsonIntelRunStore(Path(temp_dir) / "intel_runs"),
+                agents=agents,
+                source_tool=FakeRegisteredSourceTool(),
+                target_topics=["prompt injection", "data leakage"],
+            ).run()
 
             self.assertEqual(len(result.query_history), 2)
-            self.assertEqual(result.query_history[1].query_text, recommended_query)
+            self.assertIn("data leakage", result.query_history[1].query_text.lower())
+            self.assertTrue(result.reflection_notes)
 
     def test_source_specific_strategy_generates_distinct_nvd_queries(self) -> None:
         with TemporaryDirectory() as temp_dir:
