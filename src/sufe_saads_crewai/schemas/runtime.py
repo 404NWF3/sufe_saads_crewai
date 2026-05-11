@@ -4,7 +4,14 @@ from pydantic import Field
 
 from .actions import ActionDecision
 from .alerts import AlertCandidate
-from .common import ErrorRecord, FlexibleModel, NonNegativeFloat, NonNegativeInt, RunMode
+from .common import (
+    ErrorRecord,
+    FlexibleModel,
+    NonNegativeFloat,
+    NonNegativeInt,
+    RunMode,
+    Score,
+)
 from .coverage import CoverageGap, SearchReflectionDecision
 from .intel import BomResolution, DedupDecision, StandardizedIntelRecord
 from .persistence import PersistenceBundle
@@ -18,6 +25,12 @@ class RunBudget(FlexibleModel):
     max_api_calls: NonNegativeInt | None = None
     max_sources: NonNegativeInt | None = None
     max_cost_usd: NonNegativeFloat | None = None
+    target_coverage_score: Score = 0.85
+    min_novelty_delta: Score = 0.05
+    max_duplicate_ratio: Score = 0.6
+    max_low_yield_rounds: NonNegativeInt = 2
+    high_roi_gap_min_score: Score = 0.55
+    budget_warning_ratio: Score = 0.9
 
 
 class RunMetrics(FlexibleModel):
