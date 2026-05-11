@@ -8,7 +8,14 @@ import unittest
 from sufe_saads_crewai.crew import SufeSaadsCrewai
 from sufe_saads_crewai.intel import RealIntelAgentSet, RealIntelRunController
 from sufe_saads_crewai.persistence import JsonIntelRunStore
-from sufe_saads_crewai.schemas import RawIntelItem, RawIntelItemBatch, SearchQueryPlan, SourceExecutionStat
+from sufe_saads_crewai.schemas import (
+    RawIntelItem,
+    RawIntelItemBatch,
+    SearchCompletenessAssessment,
+    SearchQueryPlan,
+    SearchReflectionDecision,
+    SourceExecutionStat,
+)
 
 
 class FailingAgent:
@@ -132,6 +139,85 @@ class RealIntelLoopTests(unittest.TestCase):
             self.assertTrue(
                 any(plan["source_name"] == "osv_dev_api" for plan in first_round_plans)
             )
+
+    def test_multiple_rewritten_queries_are_scheduled_after_first_rewrite(self) -> None:
+        class MultiRewriteController(RealIntelRunController):
+            def _rewrite_search_strategy(self, blackboard, yield_assessment, gap_analysis):
+                if len(blackboard.query_history) != 1:
+                    return SearchReflectionDecision(
+                        rewritten_queries=[],
+                        rationale="No additional rewrites for deterministic frontier test.",
+                        confidence=0.9,
+                    )
+
+                source_names = [
+                    source.source_name
+                    for source in blackboard.approved_sources
+                    if source.enabled
+                ]
+                return SearchReflectionDecision(
+                    rewritten_queries=[
+                        SearchQueryPlan(
+                            query_text="low priority rewritten query",
+                            source_names=source_names,
+                            target_topics=["prompt injection"],
+                            query_intent="gap_fill",
+                            max_results=self.max_results_per_round,
+                            priority="high",
+                            round_index=1,
+                            expected_coverage_gain=0.6,
+                        ),
+                        SearchQueryPlan(
+                            query_text="high priority rewritten query",
+                            source_names=source_names,
+                            target_topics=["agent tool abuse"],
+                            query_intent="gap_fill",
+                            max_results=self.max_results_per_round,
+                            priority="critical",
+                            round_index=1,
+                            expected_coverage_gain=0.9,
+                        ),
+                    ],
+                    topics_to_expand=["prompt injection", "agent tool abuse"],
+                    rationale="Queue multiple rewritten queries for frontier scheduling.",
+                    confidence=0.9,
+                )
+
+            def _evaluate_search_completeness(
+                self,
+                blackboard,
+                gap_analysis,
+                reflection,
+                round_index,
+            ):
+                should_continue = len(blackboard.query_history) < 3
+                return SearchCompletenessAssessment(
+                    completeness_score=0.2,
+                    should_continue=should_continue,
+                    stop_rationale=None if should_continue else "frontier test complete",
+                )
+
+        with TemporaryDirectory() as temp_dir:
+            agents = RealIntelAgentSet(
+                planner=FailingAgent(),
+                collector=FailingAgent(),
+                critic=FailingAgent(),
+            )
+            result = MultiRewriteController(
+                run_goal="Collect LLM security intelligence",
+                initial_query="LLM prompt injection",
+                max_rounds=3,
+                run_store=JsonIntelRunStore(Path(temp_dir) / "intel_runs"),
+                agents=agents,
+                source_tool=FakeRegisteredSourceTool(),
+            ).run()
+
+            executed_queries = [entry.query_text for entry in result.query_history]
+
+            self.assertEqual(len(executed_queries), 3)
+            self.assertEqual(executed_queries[0], "LLM prompt injection")
+            self.assertEqual(executed_queries[1], "high priority rewritten query")
+            self.assertEqual(executed_queries[2], "low priority rewritten query")
 
     def test_source_specific_strategy_generates_distinct_nvd_queries(self) -> None:
         with TemporaryDirectory() as temp_dir:
