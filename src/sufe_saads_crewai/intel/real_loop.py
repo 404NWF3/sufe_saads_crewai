@@ -106,9 +106,8 @@ class RealIntelRunController:
             budget=RunBudget(max_rounds=self.max_rounds, max_api_calls=100, max_sources=12),
             approved_sources=default_registered_api_sources(),
         )
-        query_frontier: list[SearchQueryPlan] = [
-            self._query_plan(blackboard, self.initial_query, 0)
-        ]
+        current_query = self.initial_query
+        query_frontier: list[SearchQueryPlan] = []
 
         for round_index in range(self.max_rounds):
             query_plan = self._select_frontier_query(query_frontier, round_index)
@@ -194,15 +193,35 @@ class RealIntelRunController:
                 )
                 break
 
-            if not self._has_unexecuted_frontier_query(query_frontier):
+            next_query_plans = self._next_query_frontier(
+                blackboard=blackboard,
+                gap_analysis=gap_analysis,
+                reflection=reflection,
+                completeness=completeness,
+                next_round_index=round_index + 1,
+            )
+            for next_query_plan in next_query_plans:
+                if not self._query_already_queued_or_run(
+                    next_query_plan.query_text,
+                    blackboard,
+                    query_frontier,
+                ):
+                    query_frontier.append(next_query_plan)
+
+            if not query_frontier:
                 blackboard.action_history.append(
                     ActionDecision(
                         action_type="STOP",
                         priority="high",
-                        rationale="Planner did not produce a fresh next query after coverage review.",
+                        rationale=(
+                            "Neither planner rewrite nor critic recommended a non-repeated "
+                            "next query after coverage review."
+                        ),
                     )
                 )
                 break
+
+            current_query = query_frontier.pop(0).query_text
 
         self._persist(blackboard, status="succeeded")
         return blackboard
@@ -1120,6 +1139,159 @@ class RealIntelRunController:
                 return template
         return f"{templates[0]} latest exploitation mitigation evidence"
 
+    def _next_query_frontier(
+        self,
+        blackboard: IntelRunBlackboard,
+        gap_analysis: CoverageGapAnalysis,
+        reflection: SearchReflectionDecision,
+        completeness: SearchCompletenessAssessment,
+        next_round_index: int,
+    ) -> list[SearchQueryPlan]:
+        """Return de-duplicated planner and critic next-query candidates."""
+        candidates: list[SearchQueryPlan] = []
+        candidates.extend(reflection.rewritten_queries)
+
+        critic_query = getattr(completeness, "recommended_next_query", None)
+        if critic_query:
+            candidates.append(
+                self._recommended_query_plan(
+                    query_text=critic_query,
+                    blackboard=blackboard,
+                    gap_analysis=gap_analysis,
+                    next_round_index=next_round_index,
+                )
+            )
+
+        unique_candidates: list[SearchQueryPlan] = []
+        seen: set[str] = set()
+        for candidate in candidates:
+            normalized = _normalize_query_text(candidate.query_text)
+            if not normalized or normalized in seen:
+                continue
+            seen.add(normalized)
+            candidate.round_index = next_round_index
+            unique_candidates.append(candidate)
+
+        return sorted(
+            unique_candidates,
+            key=lambda candidate: self._next_query_priority_score(
+                candidate, blackboard, gap_analysis
+            ),
+            reverse=True,
+        )
+
+    def _recommended_query_plan(
+        self,
+        query_text: str,
+        blackboard: IntelRunBlackboard,
+        gap_analysis: CoverageGapAnalysis,
+        next_round_index: int,
+    ) -> SearchQueryPlan:
+        target_topics = self._target_topics_for_query(query_text, gap_analysis)
+        return SearchQueryPlan(
+            query_text=query_text,
+            source_names=[
+                source.source_name for source in blackboard.approved_sources if source.enabled
+            ],
+            target_topics=target_topics,
+            query_intent="gap_fill",
+            max_results=self.max_results_per_round,
+            priority="high",
+            rationale="Coverage critic recommended this next query for remaining gaps.",
+            round_index=next_round_index,
+        )
+
+    def _target_topics_for_query(
+        self,
+        query_text: str,
+        gap_analysis: CoverageGapAnalysis,
+    ) -> list[str]:
+        detected = detect_topics(query_text)
+        query_lower = query_text.lower()
+        gap_topics = [
+            gap.taxonomy_or_component
+            for gap in gap_analysis.gaps
+            if _query_mentions_topic(query_lower, gap.taxonomy_or_component)
+        ]
+        high_roi_gap_topics = [
+            gap.taxonomy_or_component
+            for gap in self._high_roi_gaps(gap_analysis)
+            if _query_mentions_topic(query_lower, gap.taxonomy_or_component)
+        ]
+        topics = high_roi_gap_topics + gap_topics + detected
+        return _dedupe_preserve_order(topics) or [
+            gap.taxonomy_or_component for gap in self._high_roi_gaps(gap_analysis)[:4]
+        ]
+
+    def _next_query_priority_score(
+        self,
+        candidate: SearchQueryPlan,
+        blackboard: IntelRunBlackboard,
+        gap_analysis: CoverageGapAnalysis,
+    ) -> tuple[int, int, int, int]:
+        repeated = self._query_already_queued_or_run(candidate.query_text, blackboard, [])
+        high_roi_covered = self._covered_high_roi_gap_count(candidate, gap_analysis)
+        gap_covered = self._covered_gap_count(candidate, gap_analysis)
+        critic_recommended = int(
+            "critic recommended" in candidate.rationale.lower()
+            or "coverage critic" in candidate.rationale.lower()
+        )
+        critic_high_roi = int(bool(critic_recommended and high_roi_covered))
+        return (int(not repeated), critic_high_roi, high_roi_covered, gap_covered)
+
+    def _covered_high_roi_gap_count(
+        self,
+        candidate: SearchQueryPlan,
+        gap_analysis: CoverageGapAnalysis,
+    ) -> int:
+        return sum(
+            1
+            for gap in self._high_roi_gaps(gap_analysis)
+            if self._candidate_covers_gap(candidate, gap.taxonomy_or_component)
+        )
+
+    def _covered_gap_count(
+        self,
+        candidate: SearchQueryPlan,
+        gap_analysis: CoverageGapAnalysis,
+    ) -> int:
+        return sum(
+            1
+            for gap in gap_analysis.gaps
+            if self._candidate_covers_gap(candidate, gap.taxonomy_or_component)
+        )
+
+    def _candidate_covers_gap(
+        self,
+        candidate: SearchQueryPlan,
+        gap_topic: str,
+    ) -> bool:
+        query_lower = candidate.query_text.lower()
+        target_topics = {topic.lower() for topic in candidate.target_topics}
+        return gap_topic.lower() in target_topics or _query_mentions_topic(query_lower, gap_topic)
+
+    def _high_roi_gaps(self, gap_analysis: CoverageGapAnalysis) -> list[CoverageGap]:
+        return [
+            gap
+            for gap in gap_analysis.gaps
+            if gap.estimated_gap_fill_roi >= 0.55 or gap.priority in {"high", "critical"}
+        ]
+
+    def _query_already_queued_or_run(
+        self,
+        query_text: str,
+        blackboard: IntelRunBlackboard,
+        query_frontier: list[SearchQueryPlan],
+    ) -> bool:
+        normalized = _normalize_query_text(query_text)
+        previous_queries = {
+            _normalize_query_text(entry.query_text) for entry in blackboard.query_history
+        }
+        queued_queries = {
+            _normalize_query_text(query.query_text) for query in query_frontier
+        }
+        return normalized in previous_queries or normalized in queued_queries
+
     def _evaluate_search_completeness(
         self,
         blackboard: IntelRunBlackboard,
@@ -1146,6 +1318,7 @@ class RealIntelRunController:
                 ),
                 missing_dimensions=parsed.missing_topics,
                 recommended_next_mode="gap_fill" if parsed.should_continue else None,
+                recommended_next_query=parsed.recommended_next_query,
                 stop_rationale=parsed.stop_reason or parsed.rationale,
             )
 
@@ -1160,6 +1333,11 @@ class RealIntelRunController:
             should_continue=should_continue,
             missing_dimensions=[gap.taxonomy_or_component for gap in gap_analysis.gaps],
             recommended_next_mode="gap_fill" if should_continue else None,
+            recommended_next_query=(
+                reflection.rewritten_queries[0].query_text
+                if should_continue and reflection.rewritten_queries
+                else None
+            ),
             stop_rationale=None if should_continue else "Coverage threshold, query, or round budget stop condition met.",
         )
 
@@ -1434,6 +1612,16 @@ def _item_id(source_name: str, source_uri: str, title: str) -> str:
 
 def _normalize_query_text(query_text: str) -> str:
     return " ".join(query_text.lower().split())
+
+
+def _query_mentions_topic(query_lower: str, topic: str) -> bool:
+    topic_lower = topic.lower()
+    if topic_lower in query_lower:
+        return True
+    topic_tokens = [token for token in re.split(r"[^a-z0-9]+", topic_lower) if token]
+    if not topic_tokens:
+        return False
+    return all(token in query_lower for token in topic_tokens)
 
 
 def _dedupe_preserve_order(values: list[Any]) -> list[Any]:
