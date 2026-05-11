@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import json
 from unittest.mock import patch
+import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
 
 from sufe_saads_crewai.crew import SufeSaadsCrewai
 from sufe_saads_crewai.intel import RealIntelAgentSet, RealIntelRunController
@@ -22,6 +24,34 @@ from sufe_saads_crewai.schemas import (
 class FailingAgent:
     def kickoff(self, prompt: str):
         raise RuntimeError("LLM disabled for deterministic unit test")
+
+
+class FakeAgentResult:
+    def __init__(self, raw: str) -> None:
+        self.raw = raw
+
+
+class RecommendedQueryCriticAgent:
+    def __init__(self, recommended_next_query: str) -> None:
+        self.recommended_next_query = recommended_next_query
+
+    def kickoff(self, prompt: str):
+        if not prompt.startswith(
+            "Decide whether the real-source intelligence search should continue"
+        ):
+            raise RuntimeError("Use deterministic fallbacks before completeness")
+        return FakeAgentResult(
+            json.dumps(
+                {
+                    "should_continue": True,
+                    "completeness_score": 0.35,
+                    "missing_topics": ["agent tool abuse"],
+                    "recommended_next_query": self.recommended_next_query,
+                    "stop_reason": None,
+                    "rationale": "Continue with the high-ROI agent tool abuse gap.",
+                }
+            )
+        )
 
 
 class FakeRegisteredSourceTool:
@@ -181,7 +211,7 @@ class RealIntelLoopTests(unittest.TestCase):
             agents = RealIntelAgentSet(
                 planner=FailingAgent(),
                 collector=FailingAgent(),
-                critic=FailingAgent(),
+                critic=RecommendedQueryCriticAgent(recommended_query),
             )
             result = RealIntelRunController(
                 run_goal="Collect prompt injection and data leakage intelligence",
