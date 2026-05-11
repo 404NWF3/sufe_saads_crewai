@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 import re
+from time import monotonic
 from typing import Any
 from uuid import uuid4
 
@@ -84,6 +85,7 @@ class RealIntelRunController:
         agents: RealIntelAgentSet | None = None,
         source_tool: RegisteredApiSourceSearchTool | None = None,
         target_topics: list[str] | None = None,
+        run_budget: RunBudget | None = None,
     ) -> None:
         self.run_goal = run_goal
         self.initial_query = initial_query
@@ -93,21 +95,30 @@ class RealIntelRunController:
         self.agents = agents or self._default_agents()
         self.source_tool = source_tool or RegisteredApiSourceSearchTool()
         self.target_topics = target_topics or list(TARGET_SECURITY_TOPICS)
+        self.run_budget = run_budget
         self.raw_item_batches: list[RawIntelItemBatch] = []
         self._executed_source_query_keys: set[str] = set()
         self._latest_semantic_expansion: SearchSemanticExpansionOutput | None = None
 
     def run(self) -> IntelRunBlackboard:
+        budget = self.run_budget.model_copy() if self.run_budget is not None else RunBudget()
+        budget.max_rounds = self.max_rounds
+        if budget.max_api_calls is None:
+            budget.max_api_calls = 100
+        if budget.max_sources is None:
+            budget.max_sources = 12
         blackboard = IntelRunBlackboard(
             run_id=f"real-{uuid4().hex[:8]}",
             run_goal=self.run_goal,
             run_mode="bootstrap",
-            budget=RunBudget(max_rounds=self.max_rounds, max_api_calls=100, max_sources=12),
+            budget=budget,
             approved_sources=default_registered_api_sources(),
         )
         current_query = self.initial_query
+        started_at = monotonic()
+        round_index = 0
 
-        for round_index in range(self.max_rounds):
+        while round_index < self.max_rounds:
             query_plan = self._query_plan(blackboard, current_query, round_index)
             action_batch = self._select_next_actions(blackboard, query_plan)
             blackboard.action_history.extend(action_batch.actions)
@@ -156,8 +167,10 @@ class RealIntelRunController:
                     )
                 )
 
+            blackboard.metrics.elapsed_seconds = monotonic() - started_at
             completeness = self._evaluate_search_completeness(
                 blackboard,
+                yield_assessment,
                 gap_analysis,
                 reflection,
                 round_index,
@@ -187,6 +200,7 @@ class RealIntelRunController:
                 break
 
             current_query = reflection.rewritten_queries[0].query_text
+            round_index += 1
 
         self._persist(blackboard, status="succeeded")
         return blackboard
@@ -1035,6 +1049,7 @@ class RealIntelRunController:
     def _evaluate_search_completeness(
         self,
         blackboard: IntelRunBlackboard,
+        yield_assessment: CollectionYieldAssessment,
         gap_analysis: CoverageGapAnalysis,
         reflection: SearchReflectionDecision,
         round_index: int,
@@ -1047,33 +1062,149 @@ class RealIntelRunController:
             f"Reflection: {reflection.model_dump_json()}\n"
             f"Round index: {round_index}, max rounds: {self.max_rounds}"
         )
+        policy_continue, policy_stop_rationale, diminishing_evidence = self._loop_policy_decision(
+            blackboard,
+            yield_assessment,
+            gap_analysis,
+            round_index,
+        )
+
         parsed = _kickoff_json(self.agents.critic, prompt, CompletenessDecisionOutput)
         if parsed is not None:
+            should_continue = (
+                parsed.should_continue
+                and policy_continue
+                and bool(parsed.recommended_next_query or reflection.rewritten_queries)
+            )
             return SearchCompletenessAssessment(
                 completeness_score=parsed.completeness_score,
-                should_continue=(
-                    parsed.should_continue
-                    and round_index + 1 < self.max_rounds
-                    and bool(parsed.recommended_next_query or reflection.rewritten_queries)
-                ),
+                should_continue=should_continue,
                 missing_dimensions=parsed.missing_topics,
-                recommended_next_mode="gap_fill" if parsed.should_continue else None,
-                stop_rationale=parsed.stop_reason or parsed.rationale,
+                diminishing_returns_evidence=diminishing_evidence,
+                recommended_next_mode="gap_fill" if should_continue else None,
+                stop_rationale=(
+                    None
+                    if should_continue
+                    else policy_stop_rationale or parsed.stop_reason or parsed.rationale
+                ),
             )
 
-        should_continue = (
-            round_index + 1 < self.max_rounds
-            and gap_analysis.overall_coverage_score < 0.85
-            and bool(gap_analysis.gaps)
-            and bool(reflection.rewritten_queries)
-        )
+        should_continue = policy_continue and bool(reflection.rewritten_queries)
         return SearchCompletenessAssessment(
             completeness_score=gap_analysis.overall_coverage_score,
             should_continue=should_continue,
             missing_dimensions=[gap.taxonomy_or_component for gap in gap_analysis.gaps],
+            diminishing_returns_evidence=diminishing_evidence,
             recommended_next_mode="gap_fill" if should_continue else None,
-            stop_rationale=None if should_continue else "Coverage threshold, query, or round budget stop condition met.",
+            stop_rationale=(
+                None
+                if should_continue
+                else policy_stop_rationale or "No next query available after coverage review."
+            ),
         )
+
+    def _loop_policy_decision(
+        self,
+        blackboard: IntelRunBlackboard,
+        yield_assessment: CollectionYieldAssessment,
+        gap_analysis: CoverageGapAnalysis,
+        round_index: int,
+    ) -> tuple[bool, str | None, list[str]]:
+        budget = blackboard.budget
+        diminishing_evidence = self._diminishing_return_evidence(
+            blackboard.query_history,
+            budget.max_low_yield_rounds,
+            budget.min_novelty_delta,
+            budget.max_duplicate_ratio,
+        )
+        high_roi_gaps = [
+            gap
+            for gap in gap_analysis.gaps
+            if gap.estimated_gap_fill_roi >= budget.high_roi_gap_min_score
+            or gap.priority in {"high", "critical"}
+        ]
+        low_collection_yield = self._low_collection_yield(
+            yield_assessment,
+            budget.min_novelty_delta,
+            budget.max_duplicate_ratio,
+        )
+
+        if round_index + 1 >= self.max_rounds:
+            return False, "Round hard limit reached.", diminishing_evidence
+        budget_rationale = self._budget_limit_rationale(blackboard)
+        if budget_rationale is not None:
+            return False, budget_rationale, diminishing_evidence
+        if diminishing_evidence:
+            return (
+                False,
+                "Recent collection rounds have persistently low novelty and high duplicate ratio.",
+                diminishing_evidence,
+            )
+        if gap_analysis.overall_coverage_score >= budget.target_coverage_score:
+            return False, "Target coverage score reached.", diminishing_evidence
+        if not high_roi_gaps:
+            return False, "No high-ROI coverage gaps remain.", diminishing_evidence
+        if (
+            budget.max_low_yield_rounds > 0
+            and low_collection_yield
+            and len(blackboard.query_history) >= budget.max_low_yield_rounds
+        ):
+            return (
+                False,
+                "Collection yield is below novelty and duplicate thresholds.",
+                diminishing_evidence,
+            )
+        return True, None, diminishing_evidence
+
+    def _low_collection_yield(
+        self,
+        yield_assessment: CollectionYieldAssessment,
+        min_novelty_delta: float,
+        max_duplicate_ratio: float,
+    ) -> bool:
+        if not yield_assessment.per_source_metrics:
+            return False
+        return all(
+            (
+                metric.novelty_score < min_novelty_delta
+                and metric.duplicate_ratio >= max_duplicate_ratio
+            )
+            or metric.result_count == 0
+            for metric in yield_assessment.per_source_metrics
+        )
+
+    def _diminishing_return_evidence(
+        self,
+        history: list[QueryHistoryEntry],
+        max_low_yield_rounds: int,
+        min_novelty_delta: float,
+        max_duplicate_ratio: float,
+    ) -> list[str]:
+        if max_low_yield_rounds <= 0 or len(history) < max_low_yield_rounds:
+            return []
+        recent = history[-max_low_yield_rounds:]
+        if not all(entry.novelty_score < min_novelty_delta for entry in recent):
+            return []
+        if not all(entry.duplicate_ratio >= max_duplicate_ratio for entry in recent):
+            return []
+        return [
+            f"round {entry.round_index}: novelty={entry.novelty_score:.2f}, duplicate={entry.duplicate_ratio:.2f}"
+            for entry in recent
+        ]
+
+    def _budget_limit_rationale(self, blackboard: IntelRunBlackboard) -> str | None:
+        budget = blackboard.budget
+        warning_ratio = budget.budget_warning_ratio
+        budget_checks = (
+            (budget.max_api_calls, blackboard.metrics.api_calls_used, "API call budget"),
+            (budget.max_tokens, blackboard.metrics.tokens_used, "token budget"),
+            (budget.max_cost_usd, blackboard.metrics.cost_used, "cost budget"),
+            (budget.max_seconds, blackboard.metrics.elapsed_seconds, "time budget"),
+        )
+        for limit, used, label in budget_checks:
+            if limit is not None and limit > 0 and used / limit >= warning_ratio:
+                return f"{label} is near its configured limit."
+        return None
 
     def _semantic_terms_for_source(
         self,

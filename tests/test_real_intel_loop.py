@@ -8,7 +8,12 @@ import unittest
 from sufe_saads_crewai.crew import SufeSaadsCrewai
 from sufe_saads_crewai.intel import RealIntelAgentSet, RealIntelRunController
 from sufe_saads_crewai.persistence import JsonIntelRunStore
-from sufe_saads_crewai.schemas import RawIntelItem, RawIntelItemBatch, SearchQueryPlan, SourceExecutionStat
+from sufe_saads_crewai.schemas import (
+    RawIntelItem,
+    RawIntelItemBatch,
+    SearchQueryPlan,
+    SourceExecutionStat,
+)
 
 
 class FailingAgent:
@@ -30,7 +35,9 @@ class FakeRegisteredSourceTool:
         if kwargs.get("nvd_keyword_search"):
             topics = ["model supply chain"]
             title = f"NVD CVE candidate for {kwargs['nvd_keyword_search']}"
-            item_id = f"fake-nvd-{kwargs['nvd_keyword_search']}".replace(" ", "-").lower()
+            item_id = f"fake-nvd-{kwargs['nvd_keyword_search']}".replace(
+                " ", "-"
+            ).lower()
             source_name = "nvd_cve_api"
         elif kwargs.get("osv_package_name"):
             topics = ["model supply chain"]
@@ -84,7 +91,9 @@ class RealIntelLoopTests(unittest.TestCase):
     def test_production_agents_use_glm_and_collector_has_no_mock_tools(self) -> None:
         crew = SufeSaadsCrewai().crew()
         models = [getattr(agent.llm, "model", "") for agent in crew.agents]
-        collector = next(agent for agent in crew.agents if "多源情报采集员" in agent.role)
+        collector = next(
+            agent for agent in crew.agents if "多源情报采集员" in agent.role
+        )
         tool_names = {tool.name for tool in collector.tools}
 
         self.assertNotIn("gpt-4.1-mini", models)
@@ -116,12 +125,17 @@ class RealIntelLoopTests(unittest.TestCase):
             )
             self.assertTrue(result.reflection_notes)
             self.assertEqual(result.action_history[-1].action_type, "STOP")
-            payload = json.loads(run_store.run_path(result.run_id).read_text(encoding="utf-8"))
+            payload = json.loads(
+                run_store.run_path(result.run_id).read_text(encoding="utf-8")
+            )
             self.assertEqual(payload["status"], "succeeded")
             self.assertEqual(len(payload["raw_item_batches"]), 2)
             self.assertIn(
                 "EXPAND_SEARCH_SEMANTICS",
-                [action["action_type"] for action in payload["blackboard"]["action_history"]],
+                [
+                    action["action_type"]
+                    for action in payload["blackboard"]["action_history"]
+                ],
             )
             first_round_plans = payload["blackboard"]["query_history"][0]["metadata"][
                 "source_query_plans"
@@ -132,6 +146,52 @@ class RealIntelLoopTests(unittest.TestCase):
             self.assertTrue(
                 any(plan["source_name"] == "osv_dev_api" for plan in first_round_plans)
             )
+
+    def test_real_controller_stops_before_max_rounds_when_coverage_is_sufficient(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temp_dir:
+            agents = RealIntelAgentSet(
+                planner=FailingAgent(),
+                collector=FailingAgent(),
+                critic=FailingAgent(),
+            )
+            result = RealIntelRunController(
+                run_goal="Collect prompt injection intelligence",
+                initial_query="LLM prompt injection",
+                max_rounds=5,
+                run_store=JsonIntelRunStore(Path(temp_dir) / "intel_runs"),
+                agents=agents,
+                source_tool=FakeRegisteredSourceTool(),
+                target_topics=["prompt injection"],
+            ).run()
+
+            self.assertEqual(len(result.query_history), 1)
+            self.assertEqual(result.action_history[-1].action_type, "STOP")
+            self.assertIn(
+                "Target coverage score reached", result.action_history[-1].rationale
+            )
+
+    def test_real_controller_continues_when_high_roi_gap_exists(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            agents = RealIntelAgentSet(
+                planner=FailingAgent(),
+                collector=FailingAgent(),
+                critic=FailingAgent(),
+            )
+            result = RealIntelRunController(
+                run_goal="Collect prompt injection and data leakage intelligence",
+                initial_query="LLM prompt injection",
+                max_rounds=2,
+                run_store=JsonIntelRunStore(Path(temp_dir) / "intel_runs"),
+                agents=agents,
+                source_tool=FakeRegisteredSourceTool(),
+                target_topics=["prompt injection", "data leakage"],
+            ).run()
+
+            self.assertEqual(len(result.query_history), 2)
+            self.assertIn("data leakage", result.query_history[1].query_text.lower())
+            self.assertTrue(result.reflection_notes)
 
     def test_source_specific_strategy_generates_distinct_nvd_queries(self) -> None:
         with TemporaryDirectory() as temp_dir:
