@@ -1,19 +1,54 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
 
 from sufe_saads_crewai.crew import SufeSaadsCrewai
 from sufe_saads_crewai.intel import RealIntelAgentSet, RealIntelRunController
 from sufe_saads_crewai.persistence import JsonIntelRunStore
-from sufe_saads_crewai.schemas import RawIntelItem, RawIntelItemBatch, SearchQueryPlan, SourceExecutionStat
+from sufe_saads_crewai.schemas import (
+    RawIntelItem,
+    RawIntelItemBatch,
+    SearchQueryPlan,
+    SourceExecutionStat,
+)
 
 
 class FailingAgent:
     def kickoff(self, prompt: str):
         raise RuntimeError("LLM disabled for deterministic unit test")
+
+
+class FakeAgentResult:
+    def __init__(self, raw: str) -> None:
+        self.raw = raw
+
+
+class RecommendedQueryCriticAgent:
+    def __init__(self, recommended_next_query: str) -> None:
+        self.recommended_next_query = recommended_next_query
+
+    def kickoff(self, prompt: str):
+        if not prompt.startswith(
+            "Decide whether the real-source intelligence search should continue"
+        ):
+            raise RuntimeError("Use deterministic fallbacks before completeness")
+        return FakeAgentResult(
+            json.dumps(
+                {
+                    "should_continue": True,
+                    "completeness_score": 0.35,
+                    "missing_topics": ["agent tool abuse"],
+                    "recommended_next_query": self.recommended_next_query,
+                    "stop_reason": None,
+                    "rationale": "Continue with the high-ROI agent tool abuse gap.",
+                }
+            )
+        )
 
 
 class FakeRegisteredSourceTool:
@@ -30,7 +65,9 @@ class FakeRegisteredSourceTool:
         if kwargs.get("nvd_keyword_search"):
             topics = ["model supply chain"]
             title = f"NVD CVE candidate for {kwargs['nvd_keyword_search']}"
-            item_id = f"fake-nvd-{kwargs['nvd_keyword_search']}".replace(" ", "-").lower()
+            item_id = f"fake-nvd-{kwargs['nvd_keyword_search']}".replace(
+                " ", "-"
+            ).lower()
             source_name = "nvd_cve_api"
         elif kwargs.get("osv_package_name"):
             topics = ["model supply chain"]
@@ -84,7 +121,9 @@ class RealIntelLoopTests(unittest.TestCase):
     def test_production_agents_use_glm_and_collector_has_no_mock_tools(self) -> None:
         crew = SufeSaadsCrewai().crew()
         models = [getattr(agent.llm, "model", "") for agent in crew.agents]
-        collector = next(agent for agent in crew.agents if "多源情报采集员" in agent.role)
+        collector = next(
+            agent for agent in crew.agents if "多源情报采集员" in agent.role
+        )
         tool_names = {tool.name for tool in collector.tools}
 
         self.assertNotIn("gpt-4.1-mini", models)
@@ -116,12 +155,17 @@ class RealIntelLoopTests(unittest.TestCase):
             )
             self.assertTrue(result.reflection_notes)
             self.assertEqual(result.action_history[-1].action_type, "STOP")
-            payload = json.loads(run_store.run_path(result.run_id).read_text(encoding="utf-8"))
+            payload = json.loads(
+                run_store.run_path(result.run_id).read_text(encoding="utf-8")
+            )
             self.assertEqual(payload["status"], "succeeded")
             self.assertEqual(len(payload["raw_item_batches"]), 2)
             self.assertIn(
                 "EXPAND_SEARCH_SEMANTICS",
-                [action["action_type"] for action in payload["blackboard"]["action_history"]],
+                [
+                    action["action_type"]
+                    for action in payload["blackboard"]["action_history"]
+                ],
             )
             first_round_plans = payload["blackboard"]["query_history"][0]["metadata"][
                 "source_query_plans"
@@ -132,6 +176,27 @@ class RealIntelLoopTests(unittest.TestCase):
             self.assertTrue(
                 any(plan["source_name"] == "osv_dev_api" for plan in first_round_plans)
             )
+
+    def test_critic_recommended_query_becomes_next_round_query(self) -> None:
+        recommended_query = "LLM agent tool abuse code execution exploit"
+        with TemporaryDirectory() as temp_dir:
+            agents = RealIntelAgentSet(
+                planner=FailingAgent(),
+                collector=FailingAgent(),
+                critic=RecommendedQueryCriticAgent(recommended_query),
+            )
+            with patch.dict(os.environ, {"INTEL_ENABLE_AGENT_KICKOFF": "true"}):
+                result = RealIntelRunController(
+                    run_goal="Collect LLM security intelligence",
+                    initial_query="LLM prompt injection",
+                    max_rounds=2,
+                    run_store=JsonIntelRunStore(Path(temp_dir) / "intel_runs"),
+                    agents=agents,
+                    source_tool=FakeRegisteredSourceTool(),
+                ).run()
+
+            self.assertEqual(len(result.query_history), 2)
+            self.assertEqual(result.query_history[1].query_text, recommended_query)
 
     def test_source_specific_strategy_generates_distinct_nvd_queries(self) -> None:
         with TemporaryDirectory() as temp_dir:

@@ -61,4 +61,5 @@ class SearchCompletenessAssessment(FlexibleModel):
     missing_dimensions: list[str] = Field(default_factory=list)
     diminishing_returns_evidence: list[str] = Field(default_factory=list)
     recommended_next_mode: RunMode | None = None
+    recommended_next_query: str | None = None
     stop_rationale: str | None = None
