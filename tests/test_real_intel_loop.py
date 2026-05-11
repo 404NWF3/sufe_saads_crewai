@@ -80,6 +80,50 @@ class FakeRegisteredSourceTool:
         return batch.model_dump_json()
 
 
+class LowYieldNvdSourceTool(FakeRegisteredSourceTool):
+    def _run(
+        self,
+        query_text: str,
+        source_names: list[str] | None = None,
+        target_topics: list[str] | None = None,
+        max_results: int = 10,
+        round_index: int = 0,
+        approved_sources_json: str = "[]",
+        **kwargs,
+    ) -> str:
+        if kwargs.get("nvd_keyword_search"):
+            batch = RawIntelItemBatch(
+                items=[],
+                query_plan=SearchQueryPlan(
+                    query_text=query_text,
+                    source_names=source_names or [],
+                    target_topics=target_topics or [],
+                    max_results=max_results,
+                    round_index=round_index,
+                ),
+                source_stats=[
+                    SourceExecutionStat(
+                        source_name="nvd_cve_api",
+                        query_count=1,
+                        result_count=0,
+                        success=True,
+                        notes="deterministic low-yield NVD response",
+                    )
+                ],
+                batch_notes="fake low-yield NVD response",
+            )
+            return batch.model_dump_json()
+        return super()._run(
+            query_text=query_text,
+            source_names=source_names,
+            target_topics=target_topics,
+            max_results=max_results,
+            round_index=round_index,
+            approved_sources_json=approved_sources_json,
+            **kwargs,
+        )
+
+
 class RealIntelLoopTests(unittest.TestCase):
     def test_production_agents_use_glm_and_collector_has_no_mock_tools(self) -> None:
         crew = SufeSaadsCrewai().crew()
@@ -185,6 +229,40 @@ class RealIntelLoopTests(unittest.TestCase):
             serialized = json.dumps(semantic_actions[0].metadata, ensure_ascii=False)
             self.assertIn("unsafe tool execution", serialized)
             self.assertIn("nvd_cve_api", serialized)
+
+    def test_low_yield_source_budget_is_reduced_next_round(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            agents = RealIntelAgentSet(
+                planner=FailingAgent(),
+                collector=FailingAgent(),
+                critic=FailingAgent(),
+            )
+            result = RealIntelRunController(
+                run_goal="Collect LLM security intelligence",
+                initial_query="LLM prompt injection",
+                max_rounds=2,
+                run_store=JsonIntelRunStore(Path(temp_dir) / "intel_runs"),
+                agents=agents,
+                source_tool=LowYieldNvdSourceTool(),
+            ).run()
+
+            self.assertGreaterEqual(len(result.query_history), 2)
+            first_nvd_budget = result.query_history[0].metadata["source_budget_allocation"][
+                "nvd_cve_api"
+            ]
+            second_nvd_budget = result.query_history[1].metadata["source_budget_allocation"][
+                "nvd_cve_api"
+            ]
+
+            self.assertLess(
+                result.query_history[0].metadata["post_yield_source_scores"]["nvd_cve_api"],
+                result.query_history[0].metadata["source_scores"]["nvd_cve_api"],
+            )
+            self.assertTrue(
+                second_nvd_budget["query_count"] < first_nvd_budget["query_count"]
+                or max(second_nvd_budget["max_results_per_query"])
+                < max(first_nvd_budget["max_results_per_query"])
+            )
 
 
 if __name__ == "__main__":
