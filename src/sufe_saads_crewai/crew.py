@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from crewai import Agent, Crew, Process, Task
-from crewai.agent.planning_config import PlanningConfig
 from crewai.agents.agent_builder.base_agent import BaseAgent
 from crewai.project import CrewBase, agent, crew, task
 
@@ -17,10 +16,6 @@ from sufe_saads_crewai.schemas import (
     YieldAssessmentOutput,
 )
 from sufe_saads_crewai.tools import RegisteredApiSourceSearchTool
-
-
-def medium_planning_config() -> PlanningConfig:
-    return PlanningConfig(reasoning_effort="medium")
 
 
 @CrewBase
@@ -39,7 +34,6 @@ class SufeSaadsCrewai:
             config=self.agents_config["autonomous_planner"],  # type: ignore[index]
             llm=build_glm_llm("main"),
             function_calling_llm=build_glm_llm("fast"),
-            planning_config=medium_planning_config(),
             max_retry_limit=0,
             verbose=True,
         )
@@ -61,7 +55,6 @@ class SufeSaadsCrewai:
             config=self.agents_config["reflection_coverage_critic"],  # type: ignore[index]
             llm=build_glm_llm("main"),
             function_calling_llm=build_glm_llm("fast"),
-            planning_config=medium_planning_config(),
             max_retry_limit=0,
             verbose=True,
         )

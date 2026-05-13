@@ -7,10 +7,18 @@ import warnings
 
 from sufe_saads_crewai.crew import SufeSaadsCrewai
 from sufe_saads_crewai.intel import RealIntelRunController, run_mock_autonomous_loop
+from sufe_saads_crewai.llms import configure_glm_runtime, describe_glm_runtime
 from sufe_saads_crewai.persistence import JsonIntelRunStore
 from sufe_saads_crewai.tools import default_registered_api_sources
 
 warnings.filterwarnings("ignore", category=SyntaxWarning, module="pysbd")
+
+
+def configure_console_encoding() -> None:
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(encoding="utf-8", errors="replace")
 
 
 def default_blackboard_json() -> str:
@@ -26,14 +34,17 @@ def default_blackboard_json() -> str:
 
 
 def run():
+    configure_console_encoding()
     run_goal = "Collect comprehensive LLM security intelligence."
     search_query = "LLM prompt injection jailbreak RAG poisoning model supply chain"
     try:
+        configure_glm_runtime(enable_agent_kickoff=True)
+        print(describe_glm_runtime(), file=sys.stderr)
         run_store = JsonIntelRunStore()
         result = RealIntelRunController(
             run_goal=run_goal,
             initial_query=search_query,
-            max_rounds=5,
+            max_rounds=50,
             run_store=run_store,
         ).run()
         summary = {
@@ -52,6 +63,7 @@ def run():
 
 
 def run_mock_loop():
+    configure_console_encoding()
     initial_query = (
         sys.argv[1]
         if len(sys.argv) > 1
@@ -86,11 +98,14 @@ def run_mock_loop():
 
 
 def show_latest_intel():
+    configure_console_encoding()
     limit = int(sys.argv[1]) if len(sys.argv) > 1 else 20
     print(JsonIntelRunStore().format_latest_intel(limit=limit, real_only=True))
 
 
 def train():
+    configure_console_encoding()
+    configure_glm_runtime(enable_agent_kickoff=True)
     inputs = {
         "run_goal": "Collect comprehensive LLM security intelligence.",
         "blackboard_json": default_blackboard_json(),
@@ -107,6 +122,8 @@ def train():
 
 
 def replay():
+    configure_console_encoding()
+    configure_glm_runtime(enable_agent_kickoff=True)
     try:
         SufeSaadsCrewai().crew().replay(task_id=sys.argv[1])
     except Exception as e:
@@ -114,6 +131,8 @@ def replay():
 
 
 def test():
+    configure_console_encoding()
+    configure_glm_runtime(enable_agent_kickoff=True)
     inputs = {
         "run_goal": "Collect comprehensive LLM security intelligence.",
         "blackboard_json": default_blackboard_json(),
@@ -130,6 +149,7 @@ def test():
 
 
 def run_with_trigger():
+    configure_console_encoding()
     if len(sys.argv) < 2:
         raise Exception("No trigger payload provided. Please provide JSON payload as argument.")
 
@@ -139,6 +159,8 @@ def run_with_trigger():
         raise Exception("Invalid JSON payload provided as argument") from e
 
     try:
+        configure_glm_runtime(enable_agent_kickoff=True)
+        print(describe_glm_runtime(), file=sys.stderr)
         run_store = JsonIntelRunStore()
         result = RealIntelRunController(
             run_goal=trigger_payload.get(
@@ -173,4 +195,4 @@ def run_with_trigger():
 
 
 if __name__ == "__main__":
-    run_mock_loop()
+    run()

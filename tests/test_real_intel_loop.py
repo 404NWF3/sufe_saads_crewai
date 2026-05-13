@@ -2,27 +2,25 @@ from __future__ import annotations
 
 import json
 from unittest.mock import patch
-import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
-from unittest.mock import patch
 
 from sufe_saads_crewai.crew import SufeSaadsCrewai
 from sufe_saads_crewai.intel import RealIntelAgentSet, RealIntelRunController
+from sufe_saads_crewai.intel.real_loop import _kickoff_json
 from sufe_saads_crewai.persistence import JsonIntelRunStore
 from sufe_saads_crewai.schemas import (
+    PlannerDecisionOutput,
     RawIntelItem,
     RawIntelItemBatch,
     SearchQueryPlan,
-    SearchCompletenessAssessment,
-    SearchReflectionDecision,
     SourceExecutionStat,
 )
 
 
 class FailingAgent:
-    def kickoff(self, prompt: str):
+    def kickoff(self, prompt: str, **kwargs):
         raise RuntimeError("LLM disabled for deterministic unit test")
 
 
@@ -35,7 +33,7 @@ class RecommendedQueryCriticAgent:
     def __init__(self, recommended_next_query: str) -> None:
         self.recommended_next_query = recommended_next_query
 
-    def kickoff(self, prompt: str):
+    def kickoff(self, prompt: str, **kwargs):
         if not prompt.startswith(
             "Decide whether the real-source intelligence search should continue"
         ):
@@ -52,6 +50,50 @@ class RecommendedQueryCriticAgent:
                 }
             )
         )
+
+
+class RecordingStructuredAgent:
+    role = "structured-test-agent"
+
+    def __init__(self) -> None:
+        self.response_format = None
+        self.llm = type(
+            "FakeLlm",
+            (),
+            {"model": "glm-test", "base_url": "https://example.test/api/paas/v4"},
+        )()
+
+    def kickoff(self, prompt: str, response_format=None):
+        self.response_format = response_format
+        return FakeAgentResult(
+            "```json\n"
+            + json.dumps(
+                {
+                    "ignored_provider_extra": "accepted",
+                    "actions": [
+                        {
+                            "action_type": "STOP",
+                            "priority": "low",
+                            "rationale": "diagnostic",
+                            "expected_gain": "none",
+                            "required_context": [],
+                            "success_criteria": [],
+                            "retry_conditions": [],
+                            "stop_conditions": [],
+                            "estimated_cost_level": "low",
+                        }
+                    ],
+                    "planner_rationale": "diagnostic",
+                    "should_start_collection": False,
+                }
+            )
+            + "\n```"
+        )
+
+
+class TimeoutAgent(RecordingStructuredAgent):
+    def kickoff(self, prompt: str, response_format=None):
+        raise TimeoutError("Request timed out")
 
 
 class FakeRegisteredSourceTool:
@@ -176,7 +218,29 @@ class RealIntelLoopTests(unittest.TestCase):
 
         self.assertNotIn("gpt-4.1-mini", models)
         self.assertTrue(any(model.lower().startswith("glm") for model in models))
+        for agent in crew.agents:
+            self.assertIsNone(agent.planning_config)
+            self.assertFalse(agent.planning)
+            self.assertTrue(agent.llm.model.lower().startswith("glm"))
+            self.assertIn("open.bigmodel.cn", agent.llm.base_url)
+            self.assertTrue(agent.function_calling_llm.model.lower().startswith("glm"))
+            self.assertIn("open.bigmodel.cn", agent.function_calling_llm.base_url)
         self.assertEqual(tool_names, {"registered_api_source_search"})
+
+    def test_kickoff_json_parses_fenced_json_without_response_format(self) -> None:
+        with patch.dict("os.environ", {"INTEL_ENABLE_AGENT_KICKOFF": "true"}):
+            agent = RecordingStructuredAgent()
+            result = _kickoff_json(agent, "diagnostic prompt", PlannerDecisionOutput)
+
+        self.assertIsInstance(result, PlannerDecisionOutput)
+        self.assertIsNone(agent.response_format)
+        self.assertFalse(result.should_start_collection)
+
+    def test_kickoff_json_returns_none_on_timeout(self) -> None:
+        with patch.dict("os.environ", {"INTEL_ENABLE_AGENT_KICKOFF": "true"}):
+            result = _kickoff_json(TimeoutAgent(), "diagnostic prompt", PlannerDecisionOutput)
+
+        self.assertIsNone(result)
 
     def test_real_controller_rewrites_query_and_runs_second_round(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -252,6 +316,7 @@ class RealIntelLoopTests(unittest.TestCase):
 
     def test_real_controller_continues_when_high_roi_gap_exists(self) -> None:
         with TemporaryDirectory() as temp_dir:
+            recommended_query = "LLM data leakage sensitive information exposure"
             agents = RealIntelAgentSet(
                 planner=FailingAgent(),
                 collector=FailingAgent(),

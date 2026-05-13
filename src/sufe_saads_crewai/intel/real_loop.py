@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import hashlib
 import json
+import logging
 import math
 import os
 import re
@@ -54,6 +55,8 @@ from sufe_saads_crewai.tools.registered_source_tools import (
     NVD_AI_RELEVANT_CWE_IDS,
     NVD_EXACT_MATCH_KEYWORDS,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -118,12 +121,8 @@ class RealIntelRunController:
             approved_sources=default_registered_api_sources(),
         )
         self._ensure_source_scores(blackboard)
-        current_query = self.initial_query
         started_at = monotonic()
-        round_index = 0
 
-        while round_index < self.max_rounds:
-            query_plan = self._query_plan(blackboard, current_query, round_index)
         query_frontier: list[SearchQueryPlan] = [
             self._query_plan(blackboard, self.initial_query, 0)
         ]
@@ -244,9 +243,6 @@ class RealIntelRunController:
                     )
                 )
                 break
-
-            current_query = reflection.rewritten_queries[0].query_text
-            round_index += 1
 
         self._persist(blackboard, status="succeeded")
         return blackboard
@@ -387,6 +383,9 @@ class RealIntelRunController:
         blackboard: IntelRunBlackboard,
         query_plan: SearchQueryPlan,
     ) -> RawIntelItemBatch:
+        if not _agent_collector_enabled():
+            return self._direct_real_source_search(blackboard, query_plan)
+
         prompt = (
             "Call registered_api_source_search exactly once to collect real intelligence. "
             "Do not use mock data. Return concise JSON matching query_text, "
@@ -877,8 +876,8 @@ class RealIntelRunController:
             "Assess the latest real-source collection yield. Return JSON with "
             "metrics, low_yield_sources, high_noise_queries, useful_queries, "
             "novelty_summary, and recommended_adjustments.\n\n"
-            f"Latest batch: {latest_batch.model_dump_json()}\n"
-            f"Latest query history: {blackboard.query_history[-1].model_dump_json()}"
+            f"Latest batch summary: {json.dumps(_compact_batch_for_prompt(latest_batch), ensure_ascii=False)}\n"
+            f"Latest query history: {json.dumps(_compact_query_history_for_prompt(blackboard.query_history[-1:]), ensure_ascii=False)}"
         )
         parsed = _kickoff_json(self.agents.critic, prompt, YieldAssessmentOutput)
         if parsed is not None:
@@ -968,7 +967,7 @@ class RealIntelRunController:
             "Analyze coverage gaps for LLM security intelligence. Return JSON with "
             "gaps, overall_coverage_score, and analysis_rationale.\n\n"
             f"Target topics: {self.target_topics}\n"
-            f"Collected items: {[item.model_dump(mode='json') for item in blackboard.raw_items]}"
+            f"Collected items: {json.dumps(_compact_items_for_prompt(blackboard.raw_items), ensure_ascii=False)}"
         )
         parsed = _kickoff_json(self.agents.critic, prompt, CoverageAnalysisOutput)
         if parsed is not None:
@@ -1041,7 +1040,7 @@ class RealIntelRunController:
             "arxiv_api, cisa_kev_json, and osv_dev_api. Do not collect data.\n\n"
             f"Yield assessment: {yield_assessment.model_dump_json()}\n"
             f"Coverage analysis: {gap_analysis.model_dump_json()}\n"
-            f"Query history: {[entry.model_dump(mode='json') for entry in blackboard.query_history]}"
+            f"Query history: {json.dumps(_compact_query_history_for_prompt(blackboard.query_history), ensure_ascii=False)}"
         )
         parsed = _kickoff_json(self.agents.planner, prompt, SearchSemanticExpansionOutput)
         if parsed is not None:
@@ -1240,11 +1239,14 @@ class RealIntelRunController:
     ) -> SearchReflectionDecision:
         prompt = (
             "Rewrite the search strategy if coverage gaps remain. Return JSON with "
-            "should_rewrite, rewritten_query, target_topics, topics_to_stop, "
-            "rationale, and confidence.\n\n"
+            "should_rewrite, rewritten_query, rewritten_queries, target_topics, "
+            "topics_to_stop, rationale, and confidence. If exactly one next query "
+            "is needed, return it in both rewritten_query and rewritten_queries. "
+            "If no rewrite is needed, set rewritten_query to null and "
+            "rewritten_queries to an empty list.\n\n"
             f"Yield assessment: {yield_assessment.model_dump_json()}\n"
             f"Coverage analysis: {gap_analysis.model_dump_json()}\n"
-            f"Query history: {[entry.model_dump(mode='json') for entry in blackboard.query_history]}"
+            f"Query history: {json.dumps(_compact_query_history_for_prompt(blackboard.query_history), ensure_ascii=False)}"
         )
         parsed = _kickoff_json(self.agents.planner, prompt, RewriteDecisionOutput)
         if parsed is not None:
@@ -1318,7 +1320,7 @@ class RealIntelRunController:
             for topic in query.target_topics
         ]
         return SearchReflectionDecision(
-            rewritten_queries=[query],
+            rewritten_queries=rewritten_queries,
             source_priority_changes=self._source_priority_changes_from_yield(yield_assessment),
             topics_to_expand=topics,
             topics_to_stop=sorted(set(self.target_topics) - set(topics)),
@@ -1901,26 +1903,72 @@ def _kickoff_json(agent: Any, prompt: str, model: type[BaseModel]) -> Any | None
 
     try:
         result = agent.kickoff(prompt)
-    except Exception:
+    except Exception as exc:
+        _log_kickoff_json_issue(
+            agent=agent,
+            model=model,
+            error=exc,
+        )
         return None
 
     pydantic_result = getattr(result, "pydantic", None)
     if pydantic_result is not None:
         try:
             return model.model_validate(pydantic_result)
-        except ValidationError:
+        except ValidationError as exc:
+            _log_kickoff_json_issue(
+                agent=agent,
+                model=model,
+                error=exc,
+                raw_preview=str(pydantic_result),
+            )
             pass
 
     raw = getattr(result, "raw", None) or str(result)
     try:
         return model.model_validate_json(raw)
-    except ValidationError:
+    except ValidationError as exc:
+        _log_kickoff_json_issue(
+            agent=agent,
+            model=model,
+            error=exc,
+            raw_preview=raw,
+        )
         pass
 
     try:
-        return model.model_validate(_extract_json_object(raw))
-    except (json.JSONDecodeError, ValidationError, ValueError):
+        return model.model_validate(_extract_json_value(raw))
+    except (json.JSONDecodeError, ValidationError, ValueError) as exc:
+        _log_kickoff_json_issue(
+            agent=agent,
+            model=model,
+            error=exc,
+            raw_preview=raw,
+        )
         return None
+
+
+def _log_kickoff_json_issue(
+    agent: Any,
+    model: type[BaseModel],
+    error: Exception,
+    raw_preview: str | None = None,
+) -> None:
+    llm = getattr(agent, "llm", None)
+    preview = ""
+    if raw_preview:
+        preview = " raw_preview=%r" % raw_preview[:300]
+    logger.warning(
+        "Agent structured output failed: agent_role=%r schema=%s "
+        "llm_model=%r base_url=%r error_type=%s error=%s%s",
+        getattr(agent, "role", None),
+        model.__name__,
+        getattr(llm, "model", None),
+        getattr(llm, "base_url", None) or getattr(llm, "api_base", None),
+        type(error).__name__,
+        error,
+        preview,
+    )
 
 
 def _agent_kickoff_enabled() -> bool:
@@ -1928,14 +1976,99 @@ def _agent_kickoff_enabled() -> bool:
     return value in {"1", "true", "yes", "on"}
 
 
-def _extract_json_object(raw: str) -> dict[str, Any]:
+def _agent_collector_enabled() -> bool:
+    value = os.getenv("INTEL_USE_AGENT_COLLECTOR", "false").strip().lower()
+    return value in {"1", "true", "yes", "on"}
+
+
+def _extract_json_value(raw: str) -> Any:
     cleaned = raw.strip()
-    fenced = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", cleaned, re.DOTALL)
+    fenced = re.search(r"```(?:json)?\s*([\[{].*?[\]}])\s*```", cleaned, re.DOTALL)
     if fenced:
         cleaned = fenced.group(1)
-    elif "{" in cleaned and "}" in cleaned:
-        cleaned = cleaned[cleaned.find("{") : cleaned.rfind("}") + 1]
+    else:
+        object_start = cleaned.find("{")
+        object_end = cleaned.rfind("}")
+        array_start = cleaned.find("[")
+        array_end = cleaned.rfind("]")
+        candidates = []
+        if object_start != -1 and object_end != -1 and object_end > object_start:
+            candidates.append((object_start, object_end + 1))
+        if array_start != -1 and array_end != -1 and array_end > array_start:
+            candidates.append((array_start, array_end + 1))
+        if candidates:
+            start, end = min(candidates, key=lambda item: item[0])
+            cleaned = cleaned[start:end]
     return json.loads(cleaned)
+
+
+def _extract_json_object(raw: str) -> dict[str, Any]:
+    value = _extract_json_value(raw)
+    if not isinstance(value, dict):
+        raise ValueError("Expected a JSON object.")
+    return value
+
+
+def _truncate_for_prompt(value: str | None, limit: int = 480) -> str:
+    if not value:
+        return ""
+    normalized = " ".join(value.split())
+    if len(normalized) <= limit:
+        return normalized
+    return f"{normalized[:limit].rstrip()}..."
+
+
+def _compact_items_for_prompt(
+    items: list[RawIntelItem],
+    *,
+    limit: int = 40,
+) -> list[dict[str, Any]]:
+    return [
+        {
+            "item_id": item.item_id,
+            "source_name": item.source_name,
+            "source_uri": item.source_uri,
+            "title": _truncate_for_prompt(item.title, 180),
+            "summary": _truncate_for_prompt(item.summary or item.raw_text, 420),
+            "relevance_score": item.relevance_score,
+            "topics": item.metadata.get("topics", []),
+        }
+        for item in sorted(
+            items,
+            key=lambda item: (item.relevance_score, item.fetched_at),
+            reverse=True,
+        )[:limit]
+    ]
+
+
+def _compact_batch_for_prompt(batch: RawIntelItemBatch) -> dict[str, Any]:
+    return {
+        "query_plan": batch.query_plan.model_dump(mode="json") if batch.query_plan else None,
+        "source_stats": [stat.model_dump(mode="json") for stat in batch.source_stats],
+        "items": _compact_items_for_prompt(batch.items, limit=30),
+        "batch_notes": _truncate_for_prompt(batch.batch_notes, 400),
+    }
+
+
+def _compact_query_history_for_prompt(
+    query_history: list[QueryHistoryEntry],
+    *,
+    limit: int = 8,
+) -> list[dict[str, Any]]:
+    return [
+        {
+            "query_text": entry.query_text,
+            "source_names": entry.source_names,
+            "result_count": entry.result_count,
+            "novelty_score": entry.novelty_score,
+            "noise_ratio": entry.noise_ratio,
+            "duplicate_ratio": entry.duplicate_ratio,
+            "round_index": entry.round_index,
+            "failed_sources": entry.metadata.get("failed_sources", []),
+            "source_budget_allocation": entry.metadata.get("source_budget_allocation", {}),
+        }
+        for entry in query_history[-limit:]
+    ]
 
 
 def _batch_from_collection_output(

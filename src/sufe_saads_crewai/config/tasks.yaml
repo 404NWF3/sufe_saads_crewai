@@ -112,8 +112,11 @@ rewrite_search_strategy_task:
     round instead of ending with a summary.
   expected_output: >
     A structured object with fields should_rewrite, rewritten_query,
-    target_topics, topics_to_stop, rationale, and confidence. If no rewrite is
-    needed, should_rewrite must be false and rewritten_query must be null.
+    rewritten_queries, target_topics, topics_to_stop, rationale, and confidence.
+    If exactly one next query is needed, rewritten_query must contain that query
+    and rewritten_queries must be a one-item list containing the same query. If
+    no rewrite is needed, should_rewrite must be false, rewritten_query must be
+    null, and rewritten_queries must be an empty list.
   agent: autonomous_planner
 
 evaluate_search_completeness_task:

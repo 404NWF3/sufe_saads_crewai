@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 
 
 ActionName = Literal[
@@ -37,7 +37,7 @@ RegisteredSourceName = Literal[
 
 
 class StrictCrewOutput(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
 
 class NextAction(StrictCrewOutput):
@@ -150,7 +150,7 @@ class SearchSemanticExpansionOutput(StrictCrewOutput):
 class RewriteDecisionOutput(StrictCrewOutput):
     should_rewrite: bool
     rewritten_query: str | None
-    rewritten_queries: list[str] = Field(default_factory=list)
+    rewritten_queries: list[str]
     target_topics: list[str]
     topics_to_stop: list[str]
     rationale: str
