@@ -60,6 +60,14 @@ analyze_coverage_gaps_task:
     jailbreak、agent tool abuse、data leakage、model supply chain、RAG poisoning。
     不仅要判断主题是否出现，还要区分情报类型：AI 原生攻击、AI 应用基础设施漏洞、
     AI 数据/模型供应链漏洞、论文研究、已在野利用漏洞。
+
+    覆盖判断必须使用语义能力，而不是简单关键词出现：把主题别名、攻击行为、
+    受影响组件、证据类型和来源特性一起判断。例如 retrieval/corpus/vector-store
+    poisoning 应归入 RAG poisoning；tool calling、plugin、MCP、sandbox escape 应归入
+    agent tool abuse；model weights、artifact loader、pickle/deserialization、model hub
+    应归入 model supply chain；PII、credential、context window、training data extraction
+    应归入 data leakage。对每个缺口给出 current_coverage、target_coverage、semantic_terms
+    和 source-specific 查询提示，避免只输出宽泛通用查询。
   expected_output: >
     一个结构化对象，包含 gaps、overall_coverage_score 和 analysis_rationale。
     每个 gap 必须包含 topic、current_coverage、target_coverage、estimated_roi、
@@ -86,7 +94,8 @@ expand_search_semantics_task:
     Each expansion must include gap_topic, expanded_terms, source_specific_terms,
     global_negative_terms, rationale, and confidence. Each source_specific_terms
     item must include source_name, positive_terms, negative_terms, query_templates,
-    parameter_hints, and rationale.
+    parameter_hints, and rationale. Include semantic aliases, attack-behavior terms,
+    source evidence-type hints, and explicit negative terms that prevent broad AI-news noise.
   agent: autonomous_planner
 
 propose_new_sources_task:

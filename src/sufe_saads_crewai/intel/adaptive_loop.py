@@ -29,7 +29,9 @@ from sufe_saads_crewai.tools.mock_source_tools import (
 from sufe_saads_crewai.topic_utils import (
     TARGET_SECURITY_TOPICS,
     build_gap_query,
-    detect_topics,
+    detect_topic_matches,
+    semantic_terms_for_topic,
+    topic_coverage_scores,
 )
 from sufe_saads_crewai.tools.mock_source_tools import default_mock_sources
 
@@ -312,40 +314,68 @@ class ReflectionCoverageCriticRuntime:
         )
 
     def analyze_coverage_gaps(self, blackboard: IntelRunBlackboard) -> CoverageGapAnalysis:
-        covered_topics = self.covered_topics(blackboard.raw_items)
+        coverage_scores = topic_coverage_scores(blackboard.raw_items)
+        covered_topics = {
+            topic for topic, score in coverage_scores.items() if score >= 0.65
+        }
         gaps: list[CoverageGap] = []
 
         for topic in self.target_topics:
-            if topic in covered_topics:
+            current_coverage = coverage_scores.get(topic, 0.0)
+            if current_coverage >= 0.65:
                 continue
+
+            estimated_roi = round(min(1.0, 1.0 - current_coverage + 0.18), 3)
+            priority = "critical" if current_coverage < 0.2 else "high"
+            source_hints = self._source_hints_for_topic(topic)
             gaps.append(
                 CoverageGap(
                     gap_id=f"gap-{topic.replace(' ', '-')}",
                     dimension="llm_security_taxonomy",
                     taxonomy_or_component=topic,
-                    current_coverage=0.0,
-                    target_coverage=1.0,
-                    estimated_gap_fill_roi=0.82,
+                    current_coverage=current_coverage,
+                    target_coverage=0.65,
+                    estimated_gap_fill_roi=estimated_roi,
                     recommended_queries=[
                         SearchQueryPlan(
                             query_text=build_gap_query([topic]),
                             target_topics=[topic],
-                            query_intent="gap_fill",
-                            priority="high",
-                            rationale="Fill missing target security topic.",
+                            query_intent="semantic_gap_fill",
+                            priority=priority,
+                            rationale=(
+                                "Fill semantic coverage gap using aliases, attack indicators, "
+                                "and source-specific terms rather than exact topic labels only."
+                            ),
+                            metadata={
+                                "semantic_terms": semantic_terms_for_topic(topic),
+                                "source_hints": source_hints,
+                            },
                         )
                     ],
-                    recommended_sources=[],
-                    priority="high",
-                    metadata={"covered_topics": sorted(covered_topics)},
+                    recommended_sources=list(source_hints),
+                    priority=priority,
+                    metadata={
+                        "covered_topics": sorted(covered_topics),
+                        "coverage_scores": coverage_scores,
+                        "semantic_terms": semantic_terms_for_topic(topic),
+                        "source_hints": source_hints,
+                    },
                 )
             )
 
         blackboard.coverage_gaps = gaps
+        overall_score = (
+            sum(coverage_scores.get(topic, 0.0) for topic in self.target_topics)
+            / len(self.target_topics)
+        )
         return CoverageGapAnalysis(
             gaps=gaps,
-            overall_coverage_score=len(covered_topics) / len(self.target_topics),
-            analysis_rationale="Coverage is measured against the mock LLM security target taxonomy.",
+            overall_coverage_score=round(overall_score, 3),
+            analysis_rationale=(
+                "Coverage is scored semantically with aliases, source-type indicators, "
+                "explicit metadata topics, and evidence relevance. A topic is considered "
+                "covered at score >= 0.65."
+            ),
         )
 
     def evaluate_search_completeness(
@@ -388,11 +418,27 @@ class ReflectionCoverageCriticRuntime:
         )
 
     def covered_topics(self, items: Iterable[RawIntelItem]) -> set[str]:
-        covered: set[str] = set()
-        for item in items:
-            covered.update(topic for topic in item.metadata.get("topics", []) if topic in self.target_topics)
-            covered.update(detect_topics(f"{item.title} {item.summary}"))
-        return covered & set(self.target_topics)
+        scores = topic_coverage_scores(items)
+        return {
+            topic
+            for topic, score in scores.items()
+            if topic in self.target_topics and score >= 0.65
+        }
+
+    def semantic_topic_matches(self, item: RawIntelItem) -> dict[str, float]:
+        text = f"{item.title} {item.summary} {item.raw_text or ''}"
+        return {
+            match.topic: match.score
+            for match in detect_topic_matches(text)
+            if match.topic in self.target_topics
+        }
+
+    def _source_hints_for_topic(self, topic: str) -> dict[str, list[str]]:
+        source_names = ("nvd_cve_api", "osv_dev_api", "arxiv_api", "cisa_kev_json")
+        return {
+            source_name: semantic_terms_for_topic(topic, source_name=source_name)
+            for source_name in source_names
+        }
 
     def _budget_exhausted(self, blackboard: IntelRunBlackboard) -> bool:
         max_rounds = blackboard.budget.max_rounds
