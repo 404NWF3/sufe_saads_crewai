@@ -44,7 +44,7 @@ def run():
         result = RealIntelRunController(
             run_goal=run_goal,
             initial_query=search_query,
-            max_rounds=50,
+            max_rounds=100,
             run_store=run_store,
         ).run()
         summary = {
