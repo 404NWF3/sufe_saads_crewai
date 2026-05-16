@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict
 
 
 ActionName = Literal[
+    "LOAD_DB_CONTEXT",
     "PLAN_COLLECTION",
     "SEARCH_REGISTERED_SOURCE",
     "ASSESS_COLLECTION_YIELD",

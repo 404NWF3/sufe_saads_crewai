@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import sys
 import warnings
@@ -8,10 +9,24 @@ import warnings
 from sufe_saads_crewai.crew import SufeSaadsCrewai
 from sufe_saads_crewai.intel import RealIntelRunController, run_mock_autonomous_loop
 from sufe_saads_crewai.llms import configure_glm_runtime, describe_glm_runtime
-from sufe_saads_crewai.persistence import JsonIntelRunStore
+from sufe_saads_crewai.persistence import JsonIntelRunStore, MongoIntelRunStore
 from sufe_saads_crewai.tools import default_registered_api_sources
 
 warnings.filterwarnings("ignore", category=SyntaxWarning, module="pysbd")
+
+
+DEFAULT_RUN_GOAL = "Collect comprehensive LLM security intelligence."
+DEFAULT_BASELINE_SEARCH_QUERY = (
+    "LLM security intelligence baseline: prompt injection OR jailbreak OR "
+    "agent tool abuse OR RAG poisoning OR data leakage OR model supply chain OR "
+    "AI application vulnerability OR AI infrastructure vulnerability"
+)
+
+
+def build_default_run_store():
+    if os.getenv("INTEL_RUN_STORE", "").lower() == "mongodb" or os.getenv("MONGODB_URI"):
+        return MongoIntelRunStore.from_env()
+    return JsonIntelRunStore()
 
 
 def configure_console_encoding() -> None:
@@ -35,12 +50,12 @@ def default_blackboard_json() -> str:
 
 def run():
     configure_console_encoding()
-    run_goal = "Collect comprehensive LLM security intelligence."
-    search_query = "LLM prompt injection jailbreak RAG poisoning model supply chain"
+    run_goal = DEFAULT_RUN_GOAL
+    search_query = DEFAULT_BASELINE_SEARCH_QUERY
     try:
         configure_glm_runtime(enable_agent_kickoff=True)
         print(describe_glm_runtime(), file=sys.stderr)
-        run_store = JsonIntelRunStore()
+        run_store = build_default_run_store()
         result = RealIntelRunController(
             run_goal=run_goal,
             initial_query=search_query,
@@ -100,16 +115,16 @@ def run_mock_loop():
 def show_latest_intel():
     configure_console_encoding()
     limit = int(sys.argv[1]) if len(sys.argv) > 1 else 20
-    print(JsonIntelRunStore().format_latest_intel(limit=limit, real_only=True))
+    print(build_default_run_store().format_latest_intel(limit=limit, real_only=True))
 
 
 def train():
     configure_console_encoding()
     configure_glm_runtime(enable_agent_kickoff=True)
     inputs = {
-        "run_goal": "Collect comprehensive LLM security intelligence.",
+        "run_goal": DEFAULT_RUN_GOAL,
         "blackboard_json": default_blackboard_json(),
-        "search_query": "LLM prompt injection jailbreak RAG poisoning model supply chain",
+        "search_query": DEFAULT_BASELINE_SEARCH_QUERY,
     }
     try:
         SufeSaadsCrewai().crew().train(
@@ -134,9 +149,9 @@ def test():
     configure_console_encoding()
     configure_glm_runtime(enable_agent_kickoff=True)
     inputs = {
-        "run_goal": "Collect comprehensive LLM security intelligence.",
+        "run_goal": DEFAULT_RUN_GOAL,
         "blackboard_json": default_blackboard_json(),
-        "search_query": "LLM prompt injection jailbreak RAG poisoning model supply chain",
+        "search_query": DEFAULT_BASELINE_SEARCH_QUERY,
     }
     try:
         SufeSaadsCrewai().crew().test(
@@ -161,15 +176,15 @@ def run_with_trigger():
     try:
         configure_glm_runtime(enable_agent_kickoff=True)
         print(describe_glm_runtime(), file=sys.stderr)
-        run_store = JsonIntelRunStore()
+        run_store = build_default_run_store()
         result = RealIntelRunController(
             run_goal=trigger_payload.get(
                 "run_goal",
-                "Collect comprehensive LLM security intelligence.",
+                DEFAULT_RUN_GOAL,
             ),
             initial_query=trigger_payload.get(
                 "search_query",
-                "LLM prompt injection jailbreak RAG poisoning model supply chain",
+                DEFAULT_BASELINE_SEARCH_QUERY,
             ),
             max_rounds=int(trigger_payload.get("max_rounds", 5)),
             run_store=run_store,
