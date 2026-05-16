@@ -105,6 +105,9 @@ class RealIntelRunController:
         self._executed_source_query_keys: set[str] = set()
         self._latest_semantic_expansion: SearchSemanticExpansionOutput | None = None
         self._latest_source_budget_audit: dict[str, Any] = {}
+        self._historical_raw_items: list[RawIntelItem] = []
+        self._historical_item_ids: set[str] = set()
+        self._db_context_summary: dict[str, Any] = {}
 
     def run(self) -> IntelRunBlackboard:
         budget = self.run_budget.model_copy() if self.run_budget is not None else RunBudget()
@@ -120,6 +123,7 @@ class RealIntelRunController:
             budget=budget,
             approved_sources=default_registered_api_sources(),
         )
+        self._hydrate_blackboard_from_persistence(blackboard)
         self._ensure_source_scores(blackboard)
         started_at = monotonic()
 
@@ -247,6 +251,101 @@ class RealIntelRunController:
         self._persist(blackboard, status="succeeded")
         return blackboard
 
+
+    def _hydrate_blackboard_from_persistence(self, blackboard: IntelRunBlackboard) -> None:
+        """Load prior database context before planning the first search."""
+        self._historical_raw_items = self._load_historical_raw_items(limit=200)
+        self._historical_item_ids = {item.item_id for item in self._historical_raw_items}
+        previous_payload = self._load_latest_run_payload()
+
+        if previous_payload:
+            previous_blackboard = previous_payload.get("blackboard", {})
+            if isinstance(previous_blackboard, dict):
+                blackboard.source_scores.update(previous_blackboard.get("source_scores", {}))
+                blackboard.source_low_yield_streaks.update(
+                    previous_blackboard.get("source_low_yield_streaks", {})
+                )
+
+        covered_topics = sorted(self._covered_topics(self._historical_raw_items))
+        missing_topics = [topic for topic in self.target_topics if topic not in covered_topics]
+        if missing_topics:
+            blackboard.coverage_gaps = [
+                CoverageGap(
+                    gap_id=f"db-gap-{topic.replace(' ', '-')}",
+                    dimension="llm_security_taxonomy",
+                    taxonomy_or_component=topic,
+                    current_coverage=0.0,
+                    target_coverage=1.0,
+                    estimated_gap_fill_roi=0.86,
+                    recommended_queries=[
+                        SearchQueryPlan(
+                            query_text=build_gap_query([topic]),
+                            target_topics=[topic],
+                            query_intent="db_gap_fill",
+                            priority="high",
+                        )
+                    ],
+                    priority="high",
+                )
+                for topic in missing_topics
+            ]
+
+        if self._historical_raw_items or previous_payload:
+            blackboard.run_mode = "incremental"
+            self._db_context_summary = {
+                "previous_run_id": previous_payload.get("run_id") if previous_payload else None,
+                "historical_raw_items": len(self._historical_raw_items),
+                "covered_topics": covered_topics,
+                "missing_topics": missing_topics,
+                "source_scores_loaded": sorted(blackboard.source_scores),
+            }
+            blackboard.action_history.append(
+                ActionDecision(
+                    action_type="LOAD_DB_CONTEXT",
+                    priority="high",
+                    rationale=(
+                        "Loaded prior persisted intelligence before planning so the first "
+                        "search targets actual database coverage gaps instead of repeating "
+                        "already-covered topics."
+                    ),
+                    expected_gain="Reduce duplicate collection and prioritize uncovered LLM security topics.",
+                    required_context=["latest persisted run", "recent raw intelligence items"],
+                    metadata=self._db_context_summary,
+                )
+            )
+        else:
+            self._db_context_summary = {
+                "previous_run_id": None,
+                "historical_raw_items": 0,
+                "covered_topics": [],
+                "missing_topics": list(self.target_topics),
+                "source_scores_loaded": [],
+            }
+
+    def _load_historical_raw_items(self, limit: int) -> list[RawIntelItem]:
+        latest_raw_items = getattr(self.run_store, "latest_raw_items", None)
+        if latest_raw_items is None:
+            return []
+        try:
+            return list(latest_raw_items(limit=limit, real_only=True))
+        except TypeError:
+            return list(latest_raw_items(limit=limit))
+        except Exception as exc:
+            logger.warning("Unable to load historical raw intelligence from persistence: %s", exc)
+            return []
+
+    def _load_latest_run_payload(self) -> dict[str, Any] | None:
+        load_latest_payload = getattr(self.run_store, "load_latest_payload", None)
+        if load_latest_payload is None:
+            return None
+        try:
+            return load_latest_payload(real_only=True)
+        except TypeError:
+            return load_latest_payload()
+        except Exception as exc:
+            logger.warning("Unable to load latest intelligence run from persistence: %s", exc)
+            return None
+
     def _select_frontier_query(
         self,
         query_frontier: list[SearchQueryPlan],
@@ -321,11 +420,23 @@ class RealIntelRunController:
             source_names=[
                 source.source_name for source in blackboard.approved_sources if source.enabled
             ],
-            target_topics=self.target_topics,
-            query_intent="broad_recall" if round_index == 0 else "gap_fill",
+            target_topics=(
+                [gap.taxonomy_or_component for gap in blackboard.coverage_gaps]
+                if round_index == 0 and blackboard.coverage_gaps
+                else self.target_topics
+            ),
+            query_intent=(
+                "db_gap_fill"
+                if round_index == 0 and blackboard.coverage_gaps
+                else "broad_recall" if round_index == 0 else "gap_fill"
+            ),
             max_results=self.max_results_per_round,
             priority="high",
-            rationale="Real-source autonomous intelligence collection.",
+            rationale=(
+                "Database-informed gap fill from prior intelligence coverage."
+                if round_index == 0 and blackboard.coverage_gaps
+                else "Real-source autonomous intelligence collection."
+            ),
             round_index=round_index,
             expected_coverage_gain=1.0,
         )
@@ -337,7 +448,7 @@ class RealIntelRunController:
     ) -> PlannerDecisionOutput:
         prompt = (
             "Choose the next actions for this LLM security intelligence run. "
-            "Use only PLAN_COLLECTION, SEARCH_REGISTERED_SOURCE, "
+            "Use only LOAD_DB_CONTEXT, PLAN_COLLECTION, SEARCH_REGISTERED_SOURCE, "
             "ASSESS_COLLECTION_YIELD, ANALYZE_COVERAGE_GAPS, "
             "REFLECT_SEARCH_STRATEGY, or STOP.\n\n"
             f"Run goal: {blackboard.run_goal}\n"
@@ -824,7 +935,7 @@ class RealIntelRunController:
         query_plan: SearchQueryPlan,
         latest_batch: RawIntelItemBatch,
     ) -> None:
-        existing_ids = {item.item_id for item in blackboard.raw_items}
+        existing_ids = {item.item_id for item in blackboard.raw_items} | self._historical_item_ids
         new_items: list[RawIntelItem] = []
         duplicate_count = 0
         for item in latest_batch.items:
@@ -859,6 +970,7 @@ class RealIntelRunController:
                     "source_budget_allocation": dict(
                         self._latest_source_budget_audit.get("budget_allocation", {})
                     ),
+                    "database_context": self._db_context_summary,
                 },
             )
         )
@@ -967,7 +1079,8 @@ class RealIntelRunController:
             "Analyze coverage gaps for LLM security intelligence. Return JSON with "
             "gaps, overall_coverage_score, and analysis_rationale.\n\n"
             f"Target topics: {self.target_topics}\n"
-            f"Collected items: {json.dumps(_compact_items_for_prompt(blackboard.raw_items), ensure_ascii=False)}"
+            f"Collected items: {json.dumps(_compact_items_for_prompt(blackboard.raw_items), ensure_ascii=False)}\n"
+            f"Database context items: {json.dumps(_compact_items_for_prompt(self._historical_raw_items[:80]), ensure_ascii=False)}"
         )
         parsed = _kickoff_json(self.agents.critic, prompt, CoverageAnalysisOutput)
         if parsed is not None:
@@ -998,7 +1111,7 @@ class RealIntelRunController:
                 analysis_rationale=parsed.analysis_rationale,
             )
 
-        covered = self._covered_topics(blackboard.raw_items)
+        covered = self._covered_topics([*self._historical_raw_items, *blackboard.raw_items])
         gaps = [
             CoverageGap(
                 gap_id=f"gap-{topic.replace(' ', '-')}",
@@ -1894,6 +2007,7 @@ class RealIntelRunController:
             "query_history": [entry.model_dump(mode="json") for entry in blackboard.query_history],
             "coverage_gaps": [gap.taxonomy_or_component for gap in blackboard.coverage_gaps],
             "approved_sources": [source.source_name for source in blackboard.approved_sources],
+            "database_context": self._db_context_summary,
         }
 
 

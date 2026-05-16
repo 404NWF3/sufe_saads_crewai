@@ -11,6 +11,7 @@ from sufe_saads_crewai.intel import RealIntelAgentSet, RealIntelRunController
 from sufe_saads_crewai.intel.real_loop import _kickoff_json
 from sufe_saads_crewai.persistence import JsonIntelRunStore
 from sufe_saads_crewai.schemas import (
+    IntelRunBlackboard,
     PlannerDecisionOutput,
     RawIntelItem,
     RawIntelItemBatch,
@@ -335,6 +336,56 @@ class RealIntelLoopTests(unittest.TestCase):
             self.assertEqual(len(result.query_history), 2)
             self.assertIn("data leakage", result.query_history[1].query_text.lower())
             self.assertTrue(result.reflection_notes)
+
+
+    def test_real_controller_uses_persisted_context_for_initial_gap_focus(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            run_store = JsonIntelRunStore(Path(temp_dir) / "intel_runs")
+            previous = run_store.save_run(
+                IntelRunBlackboard(
+                    run_id="real-previous-context",
+                    run_goal="Previous prompt injection collection",
+                    approved_sources=[],
+                    raw_items=[
+                        RawIntelItem(
+                            item_id="persisted-prompt-injection",
+                            source_name="arxiv_api",
+                            source_uri="https://example.test/persisted-prompt",
+                            title="Indirect prompt injection defenses",
+                            summary="Prompt injection intelligence already covered in the database.",
+                            relevance_score=0.9,
+                            metadata={"topics": ["prompt injection"]},
+                        )
+                    ],
+                    source_scores={"arxiv_api": 1.4},
+                ),
+                status="succeeded",
+            )
+            self.assertTrue(previous.exists())
+
+            agents = RealIntelAgentSet(
+                planner=FailingAgent(),
+                collector=FailingAgent(),
+                critic=FailingAgent(),
+            )
+            result = RealIntelRunController(
+                run_goal="Collect prompt injection and data leakage intelligence",
+                initial_query="LLM security baseline",
+                max_rounds=1,
+                run_store=run_store,
+                agents=agents,
+                source_tool=FakeRegisteredSourceTool(),
+                target_topics=["prompt injection", "data leakage"],
+            ).run()
+
+            self.assertEqual(result.run_mode, "incremental")
+            self.assertEqual(result.action_history[0].action_type, "LOAD_DB_CONTEXT")
+            self.assertEqual(result.query_history[0].metadata["database_context"]["covered_topics"], ["prompt injection"])
+            self.assertIn("data leakage", result.query_history[0].metadata["database_context"]["missing_topics"])
+            first_round_plans = result.query_history[0].metadata["source_query_plans"]
+            serialized_plans = json.dumps(first_round_plans, ensure_ascii=False).lower()
+            self.assertIn("data leakage", json.dumps(result.query_history[0].metadata["database_context"]).lower())
+            self.assertTrue("sensitive information" in serialized_plans or "training data" in serialized_plans)
 
     def test_source_specific_strategy_generates_distinct_nvd_queries(self) -> None:
         with TemporaryDirectory() as temp_dir:

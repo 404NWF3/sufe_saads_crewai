@@ -316,13 +316,13 @@ class ReflectionCoverageCriticRuntime:
     def analyze_coverage_gaps(self, blackboard: IntelRunBlackboard) -> CoverageGapAnalysis:
         coverage_scores = topic_coverage_scores(blackboard.raw_items)
         covered_topics = {
-            topic for topic, score in coverage_scores.items() if score >= 0.65
+            topic for topic, score in coverage_scores.items() if score >= 0.60
         }
         gaps: list[CoverageGap] = []
 
         for topic in self.target_topics:
             current_coverage = coverage_scores.get(topic, 0.0)
-            if current_coverage >= 0.65:
+            if current_coverage >= 0.60:
                 continue
 
             estimated_roi = round(min(1.0, 1.0 - current_coverage + 0.18), 3)
