@@ -8,6 +8,7 @@ import warnings
 from sufe_saads_crewai.crew import SufeSaadsCrewai
 from sufe_saads_crewai.intel import RealIntelRunController, run_mock_autonomous_loop
 from sufe_saads_crewai.persistence import JsonIntelRunStore
+from sufe_saads_crewai.schemas import IntelRunBlackboard
 from sufe_saads_crewai.tools import default_registered_api_sources
 
 warnings.filterwarnings("ignore", category=SyntaxWarning, module="pysbd")
@@ -33,19 +34,10 @@ def run():
         result = RealIntelRunController(
             run_goal=run_goal,
             initial_query=search_query,
-            max_rounds=5,
+            max_rounds=50,
             run_store=run_store,
         ).run()
-        summary = {
-            "run_id": result.run_id,
-            "rounds": len(result.query_history),
-            "raw_items": len(result.raw_items),
-            "coverage_gaps_remaining": [
-                gap.taxonomy_or_component for gap in result.coverage_gaps
-            ],
-            "saved_to": str(run_store.run_path(result.run_id)),
-            "last_action": result.action_history[-1].action_type if result.action_history else None,
-        }
+        summary = _run_summary(result, run_store)
         print(json.dumps(summary, ensure_ascii=False, indent=2))
     except Exception as e:
         raise Exception(f"An error occurred while running the crew: {e}") from e
@@ -150,19 +142,12 @@ def run_with_trigger():
                 "LLM prompt injection jailbreak RAG poisoning model supply chain",
             ),
             max_rounds=int(trigger_payload.get("max_rounds", 5)),
+            max_results_per_round=int(trigger_payload.get("max_results_per_round", 80)),
             run_store=run_store,
         ).run()
         print(
             json.dumps(
-                {
-                    "run_id": result.run_id,
-                    "rounds": len(result.query_history),
-                    "raw_items": len(result.raw_items),
-                    "saved_to": str(run_store.run_path(result.run_id)),
-                    "last_action": result.action_history[-1].action_type
-                    if result.action_history
-                    else None,
-                },
+                _run_summary(result, run_store),
                 ensure_ascii=False,
                 indent=2,
             )
@@ -170,6 +155,29 @@ def run_with_trigger():
         return result
     except Exception as e:
         raise Exception(f"An error occurred while running the crew with trigger: {e}") from e
+
+
+def _run_summary(result: IntelRunBlackboard, run_store: JsonIntelRunStore) -> dict:
+    kg_counts = {
+        "total": len(result.item_knowledge_graphs),
+        "succeeded": sum(1 for record in result.item_knowledge_graphs if record.status == "succeeded"),
+        "failed": sum(1 for record in result.item_knowledge_graphs if record.status == "failed"),
+        "skipped": sum(1 for record in result.item_knowledge_graphs if record.status == "skipped"),
+    }
+    return {
+        "run_id": result.run_id,
+        "rounds": len(result.query_history),
+        "raw_items": len(result.raw_items),
+        "knowledge_graphs": kg_counts,
+        "coverage_gaps_remaining": [
+            gap.taxonomy_or_component for gap in result.coverage_gaps
+        ],
+        "saved_to": str(run_store.run_path(result.run_id)),
+        "kg_manifest_path": str(
+            run_store.root_dir / f"{result.run_id}_kg" / "manifest.json"
+        ),
+        "last_action": result.action_history[-1].action_type if result.action_history else None,
+    }
 
 
 if __name__ == "__main__":

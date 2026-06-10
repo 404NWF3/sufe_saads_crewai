@@ -5,7 +5,9 @@ description = "SUFE-SAADS-CrewAI using crewAI"
 authors = [{ name = "Your Name", email = "you@example.com" }]
 requires-python = ">=3.10,<3.14"
 dependencies = [
-    "crewai[tools]==1.14.4"
+    "crewai[tools]==1.14.4",
+    "ctinexus==0.2.1",
+    "gradio>=5.0.0,<6.0.0",
 ]
 
 [project.scripts]
@@ -17,6 +19,7 @@ test = "sufe_saads_crewai.main:test"
 run_with_trigger = "sufe_saads_crewai.main:run_with_trigger"
 mock_intel_loop = "sufe_saads_crewai.main:run_mock_loop"
 latest_intel = "sufe_saads_crewai.main:show_latest_intel"
+web = "sufe_saads_crewai.web.app:main"
 
 [build-system]
 requires = ["hatchling"]

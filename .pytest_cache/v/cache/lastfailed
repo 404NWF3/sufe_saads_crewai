@@ -1,0 +1,8 @@
+{
+  "tests/test_autonomous_loop.py": true,
+  "tests/test_crew_outputs.py": true,
+  "tests/test_intel_run_store.py": true,
+  "tests/test_real_intel_loop.py": true,
+  "tests/test_registered_source_tools.py": true,
+  "tests/test_schemas.py": true
+}

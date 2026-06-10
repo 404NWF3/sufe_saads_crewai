@@ -9,6 +9,8 @@ from sufe_saads_crewai.schemas import (
     ActionDecisionBatch,
     AlertCandidate,
     IntelRunBlackboard,
+    ItemKnowledgeGraphRecord,
+    KgEligibilityDecision,
     PersistenceBundle,
     PersistenceOperation,
     RawIntelItem,
@@ -75,6 +77,20 @@ class SchemaTests(unittest.TestCase):
                     source_uri="https://example.test/post",
                 )
             ],
+            item_knowledge_graphs=[
+                ItemKnowledgeGraphRecord(
+                    run_id="run-1",
+                    item_id="raw-3",
+                    source_name="example",
+                    source_uri="https://example.test/post",
+                    status="skipped",
+                    eligibility=KgEligibilityDecision(
+                        item_id="raw-3",
+                        eligible=False,
+                        excluded_reason="test_skip",
+                    ),
+                )
+            ],
             alerts=[
                 AlertCandidate(
                     title="Prompt injection signal",
@@ -89,6 +105,7 @@ class SchemaTests(unittest.TestCase):
         self.assertEqual(restored.run_id, "run-1")
         self.assertEqual(restored.source_proposals[0].approval_status, "pending")
         self.assertEqual(restored.action_history[0].action_type, "SEARCH_REGISTERED_SOURCE")
+        self.assertEqual(restored.item_knowledge_graphs[0].status, "skipped")
 
     def test_action_batch_accepts_query_plan_context(self) -> None:
         query_plan = SearchQueryPlan(

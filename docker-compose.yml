@@ -1,0 +1,13 @@
+services:
+  sufe-saads-crewai:
+    build: .
+    env_file:
+      - .env
+    environment:
+      GRADIO_SERVER_NAME: 0.0.0.0
+      GRADIO_SERVER_PORT: 8000
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./ctinexus_output:/app/ctinexus_output

@@ -7,6 +7,7 @@ from .alerts import AlertCandidate
 from .common import ErrorRecord, FlexibleModel, NonNegativeFloat, NonNegativeInt, RunMode
 from .coverage import CoverageGap, SearchReflectionDecision
 from .intel import BomResolution, DedupDecision, StandardizedIntelRecord
+from .kg import ItemKnowledgeGraphRecord
 from .persistence import PersistenceBundle
 from .sources import ApprovedSource, QueryHistoryEntry, RawIntelItem, SourceProposal
 
@@ -42,6 +43,8 @@ class IntelRunBlackboard(FlexibleModel):
     standardized_items: list[StandardizedIntelRecord] = Field(default_factory=list)
     dedup_decisions: list[DedupDecision] = Field(default_factory=list)
     bom_resolutions: list[BomResolution] = Field(default_factory=list)
+    item_knowledge_graphs: list[ItemKnowledgeGraphRecord] = Field(default_factory=list)
+    kg_feedback_summary: dict[str, int] = Field(default_factory=dict)
     coverage_gaps: list[CoverageGap] = Field(default_factory=list)
     reflection_notes: list[SearchReflectionDecision] = Field(default_factory=list)
     persistence_bundles: list[PersistenceBundle] = Field(default_factory=list)

@@ -71,6 +71,7 @@ class JsonIntelRunStore:
             "saved_at": saved_at,
             "raw_items": len(blackboard.raw_items),
             "rounds": len(blackboard.query_history),
+            "knowledge_graphs": self._kg_counts(blackboard),
         }
         self.latest_index_path().write_text(
             json.dumps(latest_payload, ensure_ascii=False, indent=2),
@@ -176,6 +177,10 @@ class JsonIntelRunStore:
             "rounds": len(blackboard.query_history),
             "raw_items": len(blackboard.raw_items),
             "raw_item_batches": len(raw_item_batches),
+            "knowledge_graphs": self._kg_counts(blackboard),
+            "knowledge_graph_manifest_path": str(
+                self.root_dir / f"{_safe_run_id(blackboard.run_id)}_kg" / "manifest.json"
+            ),
             "coverage_gaps_remaining": [
                 gap.taxonomy_or_component for gap in blackboard.coverage_gaps
             ],
@@ -190,6 +195,20 @@ class JsonIntelRunStore:
                 blackboard.action_history[-1].action_type
                 if blackboard.action_history
                 else None
+            ),
+        }
+
+    def _kg_counts(self, blackboard: IntelRunBlackboard) -> dict[str, int]:
+        return {
+            "total": len(blackboard.item_knowledge_graphs),
+            "succeeded": sum(
+                1 for record in blackboard.item_knowledge_graphs if record.status == "succeeded"
+            ),
+            "failed": sum(
+                1 for record in blackboard.item_knowledge_graphs if record.status == "failed"
+            ),
+            "skipped": sum(
+                1 for record in blackboard.item_knowledge_graphs if record.status == "skipped"
             ),
         }
 

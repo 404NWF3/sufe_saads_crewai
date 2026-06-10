@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from http.client import RemoteDisconnected
 import unittest
 
 from sufe_saads_crewai.crew import SufeSaadsCrewai
+from sufe_saads_crewai.schemas import RawIntelItemBatch
 from sufe_saads_crewai.tools import RegisteredApiSourceSearchTool, default_registered_api_sources
 from sufe_saads_crewai.tools.registered_source_tools import (
     DEFAULT_OSV_PACKAGE_TARGETS,
@@ -18,6 +20,23 @@ from sufe_saads_crewai.tools.registered_source_tools import (
 
 
 class RegisteredSourceToolTests(unittest.TestCase):
+    def test_remote_disconnect_is_reported_as_source_failure(self) -> None:
+        class DisconnectingTool(RegisteredApiSourceSearchTool):
+            def _search_source(self, *args, **kwargs):
+                raise RemoteDisconnected("Remote end closed connection without response")
+
+        raw = DisconnectingTool()._run(
+            query_text="LLM prompt injection",
+            source_names=["nvd_cve_api"],
+            max_results=5,
+        )
+        batch = RawIntelItemBatch.model_validate_json(raw)
+
+        self.assertEqual(batch.items, [])
+        self.assertEqual(len(batch.source_stats), 1)
+        self.assertFalse(batch.source_stats[0].success)
+        self.assertEqual(batch.source_stats[0].error_type, "RemoteDisconnected")
+
     def test_default_registered_sources_include_requested_apis(self) -> None:
         source_names = {source.source_name for source in default_registered_api_sources()}
 

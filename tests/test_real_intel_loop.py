@@ -186,6 +186,28 @@ class RealIntelLoopTests(unittest.TestCase):
             self.assertIn("unsafe tool execution", serialized)
             self.assertIn("nvd_cve_api", serialized)
 
+    def test_real_controller_does_not_generate_knowledge_graphs_automatically(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            agents = RealIntelAgentSet(
+                planner=FailingAgent(),
+                collector=FailingAgent(),
+                critic=FailingAgent(),
+            )
+            run_store = JsonIntelRunStore(Path(temp_dir) / "intel_runs")
+            result = RealIntelRunController(
+                run_goal="Collect LLM security intelligence",
+                initial_query="LLM prompt injection",
+                max_rounds=1,
+                run_store=run_store,
+                agents=agents,
+                source_tool=FakeRegisteredSourceTool(),
+            ).run()
+
+            self.assertEqual(result.item_knowledge_graphs, [])
+            self.assertNotIn("GENERATE_ITEM_KG", [action.action_type for action in result.action_history])
+            payload = json.loads(run_store.run_path(result.run_id).read_text(encoding="utf-8"))
+            self.assertEqual(payload["summary"]["knowledge_graphs"]["total"], 0)
+
 
 if __name__ == "__main__":
     unittest.main()

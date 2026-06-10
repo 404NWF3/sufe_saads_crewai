@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from http.client import RemoteDisconnected
 import json
 import os
 import re
@@ -337,7 +338,15 @@ class RegisteredApiSourceSearchTool(BaseTool):
                         notes="registered API source search executed",
                     )
                 )
-            except (HTTPError, URLError, TimeoutError, ValueError, ET.ParseError) as exc:
+            except (
+                HTTPError,
+                URLError,
+                TimeoutError,
+                RemoteDisconnected,
+                ConnectionError,
+                ValueError,
+                ET.ParseError,
+            ) as exc:
                 stats.append(
                     SourceExecutionStat(
                         source_name=source_name,
