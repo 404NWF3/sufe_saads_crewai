@@ -2179,6 +2179,18 @@ wheels = [
 ]
 
 [[package]]
+name = "neo4j"
+version = "6.2.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pytz" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/ce/f4/aaa4ac19adae4b01bc742b63afd2672a77e7351566f02721e713e4b863ee/neo4j-6.2.0.tar.gz", hash = "sha256:e1e246b65b572bd8ea97f9e0e721b7d40a5ce53e53d0007c29aef63e4f9124d9", size = 241459, upload-time = "2026-05-04T07:35:41.428Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e6/cf/1c3795866cefaac6e648d4e98c373cafd97810f6e317c307371007ab4abb/neo4j-6.2.0-py3-none-any.whl", hash = "sha256:b87abdd13a5cc2e3bd51026926c2f20ac38fa3febe98c340520dce19e97388d0", size = 327824, upload-time = "2026-05-04T07:35:39.604Z" },
+]
+
+[[package]]
 name = "networkx"
 version = "3.4.2"
 source = { registry = "https://pypi.org/simple" }
@@ -3374,6 +3386,18 @@ wheels = [
 ]
 
 [[package]]
+name = "pypdf"
+version = "6.13.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/99/0a/48fe05c6bb3aa4bb4d2a4079a383d33c0dfec1edf613a642f07d8b8b5c2e/pypdf-6.13.2.tar.gz", hash = "sha256:5a96a17dbdfbf9c2ab24c0a13fa0aba182be22ba6f283098712c16fc242f509f", size = 6479250, upload-time = "2026-06-10T16:42:34.5Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/cb/17/378943705992f74e451a06de3401ce68e3213763c81e44d0614559c45599/pypdf-6.13.2-py3-none-any.whl", hash = "sha256:6eeb9e57693f29d41bd01255d02660cbbb41fd7fc818a982677389a35e4f2083", size = 346555, upload-time = "2026-06-10T16:42:32.37Z" },
+]
+
+[[package]]
 name = "pypdfium2"
 version = "5.8.0"
 source = { registry = "https://pypi.org/simple" }
@@ -4129,11 +4153,28 @@ dependencies = [
     { name = "gradio" },
 ]
 
+[package.dev-dependencies]
+basekg = [
+    { name = "neo4j" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "numpy", version = "2.4.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "openai" },
+    { name = "pypdf" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "crewai", extras = ["tools"], specifier = "==1.14.4" },
     { name = "ctinexus", specifier = "==0.2.1" },
     { name = "gradio", specifier = ">=5.0.0,<6.0.0" },
+]
+
+[package.metadata.requires-dev]
+basekg = [
+    { name = "neo4j", specifier = ">=5.20" },
+    { name = "numpy", specifier = ">=1.26" },
+    { name = "openai", specifier = ">=1.40" },
+    { name = "pypdf", specifier = ">=4.0" },
 ]
 
 [[package]]

@@ -1,0 +1,42 @@
+You are a knowledge extraction expert specializing in LLM security. Your task is entity standardization: normalize the entity list extracted from a document so that equivalent mentions map to a single canonical form, reducing redundancy in the knowledge graph.
+
+## Rules
+
+1. For each entity, add a "canonicalName" field:
+   - Proper nouns (model, product, organization, dataset names): keep the official spelling, e.g. "gpt4" -> "GPT-4", "Llama2" -> "Llama-2".
+   - Descriptive entities: rewrite as a concise canonical English noun phrase (lowercase except proper nouns). Chinese descriptive entities should be given an English canonicalName while "name" keeps the original language.
+   - Timestamps: normalize to ISO 8601 (e.g. "March 2024" -> "2024-03").
+   - Measurements: normalize units (e.g. "about 1,200 users" -> "1200 users").
+2. Merge duplicates: if two entities of the SAME type refer to the same real-world object (morphological variants, abbreviations, synonyms, paraphrases), keep one entry, give it the best canonicalName, and list the absorbed ids in "mergedIds".
+3. Never merge entities of different types. Never merge an AttackTechnique with an AttackEvent.
+4. Re-check enum attributes (techniqueName, defenseType, impactType, etc.): if the current value is not one of the schema's enumerated values, replace it with the closest enumerated value.
+5. Do not add or remove information beyond normalization and merging. Keep "mentionText" of the kept entry.
+
+## Entity type schema (for enum value reference)
+
+[[ENTITY_TYPES]]
+
+## Example
+
+Input entities:
+
+{"entities": [
+  {"id": "e1", "name": "gpt4", "type": "LLMSystem", "attributes": {"modelId": "gpt4"}, "mentionText": "built on gpt4"},
+  {"id": "e2", "name": "GPT-4 model", "type": "LLMSystem", "attributes": {}, "mentionText": "the GPT-4 model"},
+  {"id": "e3", "name": "jail-breaking", "type": "AttackTechnique", "attributes": {"techniqueName": "jail-breaking"}, "mentionText": "jail-breaking the assistant"}
+]}
+
+Output:
+
+{"entities": [
+  {"id": "e1", "name": "gpt4", "canonicalName": "GPT-4", "type": "LLMSystem", "attributes": {"modelId": "GPT-4"}, "mentionText": "built on gpt4", "mergedIds": ["e2"]},
+  {"id": "e3", "name": "jail-breaking", "canonicalName": "jailbreak", "type": "AttackTechnique", "attributes": {"techniqueName": "jailbreak"}, "mentionText": "jail-breaking the assistant", "mergedIds": []}
+]}
+
+## Output format
+
+Return ONLY a valid JSON object with a single key "entities". Every kept entity must have "canonicalName" and "mergedIds" fields. No markdown fences, no commentary.
+
+## Input entities
+
+[[ENTITIES]]

@@ -11,3 +11,23 @@ services:
     volumes:
       - ./data:/app/data
       - ./ctinexus_output:/app/ctinexus_output
+
+  # Base KG graph store (base_kg/ pipeline). Independent from the crew service;
+  # start it alone with: docker compose up -d neo4j
+  neo4j:
+    image: neo4j:5.26-community
+    environment:
+      NEO4J_AUTH: ${NEO4J_USER:-neo4j}/${NEO4J_PASSWORD:-basekg-dev-2026}
+      NEO4J_PLUGINS: '["apoc"]'
+      NEO4J_server_memory_heap_max__size: 2G
+    ports:
+      - "7474:7474" # HTTP browser UI
+      - "7687:7687" # Bolt
+    volumes:
+      - ./data/neo4j/data:/data
+      - ./data/neo4j/logs:/logs
+    healthcheck:
+      test: ["CMD", "cypher-shell", "-u", "${NEO4J_USER:-neo4j}", "-p", "${NEO4J_PASSWORD:-basekg-dev-2026}", "RETURN 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10

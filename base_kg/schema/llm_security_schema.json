@@ -1,0 +1,371 @@
+{
+  "schema_name": "LLM Security Knowledge Graph Schema",
+  "version": "0.2.0",
+  "framework": "5W1H",
+  "description": "Schema for top-down knowledge extraction of LLM security events from documents (papers, standards, incident reports). Organized by the 5W1H framework: Who (actors), When (lifecycle/time), Where (system locations), What (attacks/vulnerabilities/assets), WhyHow (mechanisms/defenses), Result (impacts). Derived from LLM_Security_KG_Schema_Table1.docx and refined for machine-guided extraction.",
+  "alignment_references": {
+    "owasp": "OWASP Top 10 for LLM Applications 2025 (LLM01-LLM10)",
+    "atlas": "MITRE ATLAS (Adversarial Threat Landscape for AI Systems)"
+  },
+  "provenance_attributes": {
+    "description": "Attached to every extracted entity and relation instance, not declared per type.",
+    "attributes": [
+      { "name": "sourceDoc", "type": "string", "description": "Source document identifier (file name without extension)" },
+      { "name": "sourceCategory", "type": "string", "description": "Corpus category: arxiv | ICML | OWASP | cnki | other" },
+      { "name": "mentionText", "type": "string", "description": "Original text span supporting this entity/relation" }
+    ]
+  },
+  "concepts": [
+    { "name": "ThreatActor", "dimension": "Who", "description": "Parties that initiate or are affected by LLM security events", "entity_types": ["Attacker", "Victim"] },
+    { "name": "AISystem", "dimension": "Who", "description": "LLM-based systems and their governance parties", "entity_types": ["LLMSystem", "AIAgent", "MultiAgentSystem", "RewardModel", "SupplyChainActor", "SecurityAuditor"] },
+    { "name": "Lifecycle", "dimension": "When", "description": "Temporal context of attacks and defenses", "entity_types": ["LifecyclePhase", "AttackTimeWindow"] },
+    { "name": "SystemLocation", "dimension": "Where", "description": "System components and environments where attacks or defenses operate", "entity_types": ["ContextWindow", "TrainingDataset", "VectorDatabase", "ToolExecutionEnvironment", "APIEndpoint", "AgentMemory", "Tool"] },
+    { "name": "ThreatKnowledge", "dimension": "What", "description": "Attack techniques, events, vulnerabilities, assets and incidents", "entity_types": ["AttackTechnique", "AttackEvent", "Vulnerability", "Asset", "SecurityIncident"] },
+    { "name": "Mechanism", "dimension": "WhyHow", "description": "Attack paths, trigger mechanisms and defense methods", "entity_types": ["KillChain", "AttackStep", "TriggerCondition", "DefenseMechanism"] },
+    { "name": "Outcome", "dimension": "Result", "description": "Consequences of attacks", "entity_types": ["SecurityImpact"] }
+  ],
+  "entity_types": [
+    {
+      "name": "Attacker",
+      "concept": "ThreatActor",
+      "dimension": "Who",
+      "description": "The party that initiates an attack against an LLM system",
+      "attributes": [
+        { "name": "attackerType", "type": "enum", "values": ["individual", "organized_group", "insider", "state_actor", "automated_agent", "researcher"], "description": "Category of attacker" },
+        { "name": "motivation", "type": "string", "description": "Attacker motivation, e.g. financial gain, espionage, research demonstration" }
+      ]
+    },
+    {
+      "name": "Victim",
+      "concept": "ThreatActor",
+      "dimension": "Who",
+      "description": "The party harmed by an attack: end users, organizations, platform operators",
+      "attributes": [
+        { "name": "victimType", "type": "enum", "values": ["end_user", "organization", "platform_operator", "downstream_application"], "description": "Category of victim" },
+        { "name": "domain", "type": "string", "description": "Business or application domain of the victim, e.g. finance, healthcare" }
+      ]
+    },
+    {
+      "name": "LLMSystem",
+      "concept": "AISystem",
+      "dimension": "Who",
+      "description": "A large language model or LLM-backed application/service",
+      "attributes": [
+        { "name": "modelId", "type": "string", "description": "Model name or identifier, e.g. GPT-4, Llama-3-70B" },
+        { "name": "provider", "type": "string", "description": "Model provider or vendor" },
+        { "name": "version", "type": "string", "description": "Model or application version" },
+        { "name": "modality", "type": "enum", "values": ["text", "multimodal"], "description": "Input/output modality" }
+      ]
+    },
+    {
+      "name": "AIAgent",
+      "concept": "AISystem",
+      "dimension": "Who",
+      "description": "An autonomous agent built on an LLM, with tool access and an action loop",
+      "attributes": [
+        { "name": "agentId", "type": "string", "description": "Agent name or identifier" },
+        { "name": "permissionLevel", "type": "string", "description": "Privilege level of the agent, e.g. read-only, can-execute-tools" }
+      ]
+    },
+    {
+      "name": "MultiAgentSystem",
+      "concept": "AISystem",
+      "dimension": "Who",
+      "description": "A system composed of multiple cooperating AI agents",
+      "attributes": [
+        { "name": "topology", "type": "string", "description": "Coordination structure, e.g. hierarchical, peer-to-peer" },
+        { "name": "agentCount", "type": "integer", "description": "Number of agents if stated" }
+      ]
+    },
+    {
+      "name": "RewardModel",
+      "concept": "AISystem",
+      "dimension": "Who",
+      "description": "A reward or preference model used to train/align an LLM",
+      "attributes": [
+        { "name": "rewardModelType", "type": "string", "description": "Type of reward model, e.g. RLHF reward model, preference model" }
+      ]
+    },
+    {
+      "name": "SupplyChainActor",
+      "concept": "AISystem",
+      "dimension": "Who",
+      "description": "Upstream supplier in the AI supply chain",
+      "attributes": [
+        { "name": "actorType", "type": "enum", "values": ["model_hub", "base_model_provider", "dataset_provider", "plugin_vendor", "framework_maintainer"], "description": "Role in the supply chain" }
+      ]
+    },
+    {
+      "name": "SecurityAuditor",
+      "concept": "AISystem",
+      "dimension": "Who",
+      "description": "A party that audits or evaluates the security of an LLM system",
+      "attributes": [
+        { "name": "organization", "type": "string", "description": "Auditing organization" },
+        { "name": "scope", "type": "string", "description": "Audit scope" }
+      ]
+    },
+    {
+      "name": "LifecyclePhase",
+      "concept": "Lifecycle",
+      "dimension": "When",
+      "description": "A phase in the LLM lifecycle in which an attack or defense occurs",
+      "attributes": [
+        { "name": "phaseName", "type": "enum", "values": ["pretraining", "fine_tuning", "inference_deployment", "operations"], "description": "Canonical lifecycle phase" },
+        { "name": "keyRisks", "type": "string", "description": "Key risks characteristic of this phase" }
+      ]
+    },
+    {
+      "name": "AttackTimeWindow",
+      "concept": "Lifecycle",
+      "dimension": "When",
+      "description": "The concrete time window in which an attack was active",
+      "attributes": [
+        { "name": "windowStart", "type": "datetime", "description": "Start of the attack window (ISO 8601 if available)" },
+        { "name": "windowEnd", "type": "datetime", "description": "End of the attack window" }
+      ]
+    },
+    {
+      "name": "ContextWindow",
+      "concept": "SystemLocation",
+      "dimension": "Where",
+      "description": "The prompt context of an LLM call: system prompt, user input, retrieved content, tool output",
+      "attributes": [
+        { "name": "sectionType", "type": "enum", "values": ["system_prompt", "user_input", "retrieved_content", "tool_output", "conversation_history"], "description": "Which section of the context is involved" }
+      ]
+    },
+    {
+      "name": "TrainingDataset",
+      "concept": "SystemLocation",
+      "dimension": "Where",
+      "description": "A dataset used for pretraining or fine-tuning",
+      "attributes": [
+        { "name": "datasetId", "type": "string", "description": "Dataset name or identifier" },
+        { "name": "datasetSource", "type": "string", "description": "Origin of the dataset, e.g. web crawl, vendor" },
+        { "name": "sha256", "type": "string", "description": "Integrity hash if stated" }
+      ]
+    },
+    {
+      "name": "VectorDatabase",
+      "concept": "SystemLocation",
+      "dimension": "Where",
+      "description": "A vector store serving retrieval-augmented generation",
+      "attributes": [
+        { "name": "engine", "type": "string", "description": "Vector DB engine, e.g. FAISS, Milvus, pgvector" },
+        { "name": "embeddingModel", "type": "string", "description": "Embedding model used for indexing" }
+      ]
+    },
+    {
+      "name": "ToolExecutionEnvironment",
+      "concept": "SystemLocation",
+      "dimension": "Where",
+      "description": "The runtime environment in which agent tools execute",
+      "attributes": [
+        { "name": "sandboxType", "type": "string", "description": "Sandbox technology, e.g. container, gVisor, none" },
+        { "name": "syscallPolicy", "type": "string", "description": "System call restriction policy if stated" }
+      ]
+    },
+    {
+      "name": "APIEndpoint",
+      "concept": "SystemLocation",
+      "dimension": "Where",
+      "description": "A network endpoint exposing an LLM service",
+      "attributes": [
+        { "name": "url", "type": "string", "description": "Endpoint URL or path" },
+        { "name": "authType", "type": "string", "description": "Authentication mechanism" },
+        { "name": "rateLimit", "type": "string", "description": "Rate limiting policy if stated" }
+      ]
+    },
+    {
+      "name": "AgentMemory",
+      "concept": "SystemLocation",
+      "dimension": "Where",
+      "description": "Persistent or session memory storage of an AI agent",
+      "attributes": [
+        { "name": "memoryType", "type": "enum", "values": ["short_term", "long_term", "entity", "external_store"], "description": "Kind of memory" },
+        { "name": "accessControl", "type": "string", "description": "Access control on the memory store" }
+      ]
+    },
+    {
+      "name": "Tool",
+      "concept": "SystemLocation",
+      "dimension": "Where",
+      "description": "An external tool, function, or plugin callable by an AI agent",
+      "attributes": [
+        { "name": "toolName", "type": "string", "description": "Tool or plugin name" },
+        { "name": "capability", "type": "string", "description": "What the tool can do, e.g. send email, execute code, browse web" }
+      ]
+    },
+    {
+      "name": "AttackTechnique",
+      "concept": "ThreatKnowledge",
+      "dimension": "What",
+      "description": "A canonical attack technique class. Instances must use one of the enumerated technique names.",
+      "attributes": [
+        { "name": "techniqueName", "type": "enum", "values": ["prompt_injection", "indirect_prompt_injection", "jailbreak", "data_poisoning", "backdoor_attack", "model_stealing", "membership_inference", "training_data_extraction", "adversarial_example", "hallucination_exploitation", "rag_poisoning", "supply_chain_attack", "tool_misuse", "multimodal_injection", "llm_denial_of_service", "reward_hacking"], "description": "Canonical technique taxonomy" },
+        { "name": "owaspRef", "type": "string", "description": "OWASP LLM Top 10 2025 ID, e.g. LLM01" },
+        { "name": "atlasRef", "type": "string", "description": "MITRE ATLAS technique ID, e.g. AML.T0051" }
+      ],
+      "taxonomy_alignment": {
+        "prompt_injection": { "owasp": "LLM01" },
+        "indirect_prompt_injection": { "owasp": "LLM01", "atlas": "AML.T0051" },
+        "jailbreak": { "owasp": "LLM01" },
+        "data_poisoning": { "owasp": "LLM04", "atlas": "AML.T0020" },
+        "backdoor_attack": { "atlas": "AML.T0018" },
+        "model_stealing": { "atlas": "AML.T0048" },
+        "membership_inference": { "atlas": "AML.T0024" },
+        "training_data_extraction": { "owasp": "LLM02", "atlas": "AML.T0024" },
+        "adversarial_example": { "atlas": "AML.T0043" },
+        "hallucination_exploitation": { "owasp": "LLM09" },
+        "rag_poisoning": { "owasp": "LLM08" },
+        "supply_chain_attack": { "owasp": "LLM03" },
+        "tool_misuse": { "owasp": "LLM06" },
+        "multimodal_injection": { "owasp": "LLM01" },
+        "llm_denial_of_service": { "owasp": "LLM10" },
+        "reward_hacking": {}
+      }
+    },
+    {
+      "name": "AttackEvent",
+      "concept": "ThreatKnowledge",
+      "dimension": "What",
+      "description": "A concrete attack instance/campaign described in the text (as opposed to the abstract technique class)",
+      "attributes": [
+        { "name": "attackId", "type": "string", "description": "Identifier if any, e.g. campaign name" },
+        { "name": "variant", "type": "string", "description": "Specific variant of the technique used" },
+        { "name": "vector", "type": "string", "description": "Delivery vector, e.g. crafted web page, poisoned document" },
+        { "name": "eventTimestamp", "type": "datetime", "description": "When the event occurred, if stated" }
+      ]
+    },
+    {
+      "name": "Vulnerability",
+      "concept": "ThreatKnowledge",
+      "dimension": "What",
+      "description": "A weakness in an LLM system component that can be exploited",
+      "attributes": [
+        { "name": "vulnId", "type": "string", "description": "Internal or report-local identifier" },
+        { "name": "cveId", "type": "string", "description": "CVE identifier if assigned" },
+        { "name": "severity", "type": "enum", "values": ["low", "medium", "high", "critical"], "description": "Qualitative severity" },
+        { "name": "cvssScore", "type": "float", "description": "CVSS score if stated" }
+      ]
+    },
+    {
+      "name": "Asset",
+      "concept": "ThreatKnowledge",
+      "dimension": "What",
+      "description": "A protected or targeted asset: model weights, datasets, credentials, user data",
+      "attributes": [
+        { "name": "assetType", "type": "enum", "values": ["model_weights", "training_data", "user_data", "credentials", "system_prompt", "plugin_code", "infrastructure"], "description": "Asset category" },
+        { "name": "sha256", "type": "string", "description": "Integrity hash if stated" }
+      ]
+    },
+    {
+      "name": "SecurityIncident",
+      "concept": "ThreatKnowledge",
+      "dimension": "What",
+      "description": "A formally recorded security incident, with response and investigation context",
+      "attributes": [
+        { "name": "incidentId", "type": "string", "description": "Incident identifier" },
+        { "name": "incidentTimestamp", "type": "datetime", "description": "Incident time" },
+        { "name": "severity", "type": "enum", "values": ["low", "medium", "high", "critical"], "description": "Incident severity" }
+      ]
+    },
+    {
+      "name": "KillChain",
+      "concept": "Mechanism",
+      "dimension": "WhyHow",
+      "description": "The end-to-end attack path followed by an attacker",
+      "attributes": [
+        { "name": "ttpSequence", "type": "string", "description": "Ordered summary of tactics/techniques in the chain" }
+      ]
+    },
+    {
+      "name": "AttackStep",
+      "concept": "Mechanism",
+      "dimension": "WhyHow",
+      "description": "A single step within a kill chain",
+      "attributes": [
+        { "name": "stepOrder", "type": "integer", "description": "Position in the kill chain" },
+        { "name": "action", "type": "string", "description": "What the attacker does in this step" }
+      ]
+    },
+    {
+      "name": "TriggerCondition",
+      "concept": "Mechanism",
+      "dimension": "WhyHow",
+      "description": "A condition or pattern that activates an attack, e.g. a backdoor trigger phrase",
+      "attributes": [
+        { "name": "triggerPattern", "type": "string", "description": "The trigger token, phrase, or input pattern" },
+        { "name": "activationCondition", "type": "string", "description": "Contextual condition under which the trigger fires" }
+      ]
+    },
+    {
+      "name": "DefenseMechanism",
+      "concept": "Mechanism",
+      "dimension": "WhyHow",
+      "description": "A defense, mitigation, or governance mechanism. Instances must use one of the enumerated defense types.",
+      "attributes": [
+        { "name": "defenseType", "type": "enum", "values": ["alignment_training", "guardrail_system", "red_teaming", "differential_privacy", "sandbox_isolation", "least_privilege", "sbom_management", "model_integrity_verification", "audit_logging", "input_output_filtering", "rate_limiting", "human_in_the_loop"], "description": "Canonical defense taxonomy" },
+        { "name": "method", "type": "string", "description": "Concrete method, e.g. RLHF, CAI, DPO for alignment_training" },
+        { "name": "effectiveness", "type": "string", "description": "Reported effectiveness metrics, e.g. jailbreak pass rate, FPR/FNR, epsilon" }
+      ]
+    },
+    {
+      "name": "SecurityImpact",
+      "concept": "Outcome",
+      "dimension": "Result",
+      "description": "The consequence of an attack. Instances must use one of the enumerated impact types.",
+      "attributes": [
+        { "name": "impactType", "type": "enum", "values": ["data_breach", "denial_of_service", "wrong_decision", "behavioral_deviation", "privilege_escalation", "reputational_damage", "compliance_violation", "financial_loss"], "description": "Canonical impact taxonomy" },
+        { "name": "severity", "type": "enum", "values": ["low", "medium", "high", "critical"], "description": "Impact severity" },
+        { "name": "quantifiedLoss", "type": "string", "description": "Quantified loss if stated, e.g. record count, downtime minutes, penalty amount" }
+      ]
+    }
+  ],
+  "relations": [
+    { "name": "launches", "domain": ["Attacker"], "range": ["AttackEvent"], "category": "dynamic", "description": "Attacker initiates an attack event" },
+    { "name": "follows", "domain": ["Attacker"], "range": ["KillChain"], "category": "dynamic", "description": "Attacker follows a kill chain" },
+    { "name": "usesTechnique", "domain": ["AttackEvent"], "range": ["AttackTechnique"], "category": "static", "description": "Attack event instantiates a canonical attack technique" },
+    { "name": "exploits", "domain": ["AttackEvent"], "range": ["Vulnerability"], "category": "causal", "description": "Attack event exploits a vulnerability" },
+    { "name": "targets", "domain": ["AttackEvent"], "range": ["LLMSystem", "AIAgent", "MultiAgentSystem", "Asset", "APIEndpoint"], "category": "dynamic", "description": "Attack event targets a system, agent, or asset" },
+    { "name": "affects", "domain": ["AttackEvent"], "range": ["Victim"], "category": "causal", "description": "Attack event harms a victim party" },
+    { "name": "injectedInto", "domain": ["AttackEvent"], "range": ["ContextWindow", "VectorDatabase", "AgentMemory", "TrainingDataset"], "category": "spatial", "description": "SPATIAL anchor: the system location where malicious content is placed" },
+    { "name": "contaminates", "domain": ["AttackEvent"], "range": ["TrainingDataset", "VectorDatabase", "Asset"], "category": "causal", "description": "Attack event corrupts data or an upstream component" },
+    { "name": "occursIn", "domain": ["AttackEvent"], "range": ["LifecyclePhase"], "category": "temporal", "description": "TEMPORAL anchor: the lifecycle phase in which the attack occurs" },
+    { "name": "during", "domain": ["AttackEvent"], "range": ["AttackTimeWindow"], "category": "temporal", "description": "TEMPORAL anchor: the concrete time window of the attack" },
+    { "name": "causes", "domain": ["AttackEvent", "Vulnerability"], "range": ["SecurityImpact"], "category": "causal", "description": "Attack event or vulnerability leads to a security impact" },
+    { "name": "escalatesTo", "domain": ["SecurityImpact"], "range": ["SecurityIncident"], "category": "causal", "description": "Impact escalates into a formally recorded incident" },
+    { "name": "activates", "domain": ["TriggerCondition"], "range": ["AttackEvent"], "category": "causal", "description": "Trigger condition activates an attack, e.g. backdoor trigger" },
+    { "name": "comprises", "domain": ["KillChain"], "range": ["AttackStep"], "category": "structural", "description": "Kill chain is composed of ordered attack steps" },
+    { "name": "existsIn", "domain": ["Vulnerability"], "range": ["LLMSystem", "AIAgent", "Tool", "VectorDatabase", "ToolExecutionEnvironment", "APIEndpoint", "AgentMemory"], "category": "static", "description": "Vulnerability resides in a system component" },
+    { "name": "invokes", "domain": ["AIAgent"], "range": ["Tool"], "category": "dynamic", "description": "Agent calls a tool" },
+    { "name": "memberOf", "domain": ["AIAgent"], "range": ["MultiAgentSystem"], "category": "structural", "description": "Agent belongs to a multi-agent system" },
+    { "name": "provides", "domain": ["SupplyChainActor"], "range": ["Asset", "LLMSystem", "Tool", "TrainingDataset"], "category": "static", "description": "Supply chain actor supplies a component" },
+    { "name": "trains", "domain": ["RewardModel", "TrainingDataset"], "range": ["LLMSystem"], "category": "static", "description": "Reward model or dataset is used to train an LLM" },
+    { "name": "audits", "domain": ["SecurityAuditor"], "range": ["LLMSystem", "AIAgent", "MultiAgentSystem"], "category": "dynamic", "description": "Auditor evaluates a system" },
+    { "name": "serves", "domain": ["VectorDatabase"], "range": ["LLMSystem", "AIAgent"], "category": "static", "description": "Vector database backs a RAG system" },
+    { "name": "hosts", "domain": ["ToolExecutionEnvironment"], "range": ["Tool"], "category": "static", "description": "Execution environment hosts a tool" },
+    { "name": "protects", "domain": ["DefenseMechanism"], "range": ["LLMSystem", "AIAgent", "MultiAgentSystem", "APIEndpoint", "VectorDatabase", "AgentMemory"], "category": "defensive", "description": "Defense mechanism protects a system component" },
+    { "name": "mitigates", "domain": ["DefenseMechanism"], "range": ["AttackTechnique", "Vulnerability", "SecurityImpact"], "category": "defensive", "description": "Defense mechanism reduces a technique, vulnerability, or impact" },
+    { "name": "detects", "domain": ["DefenseMechanism"], "range": ["AttackEvent"], "category": "defensive", "description": "Defense mechanism detects an attack event" },
+    { "name": "discovers", "domain": ["DefenseMechanism", "SecurityAuditor"], "range": ["Vulnerability"], "category": "defensive", "description": "Red teaming or audit discovers a vulnerability" },
+    { "name": "records", "domain": ["DefenseMechanism"], "range": ["AttackEvent", "SecurityIncident"], "category": "defensive", "description": "Audit logging records an event or incident" },
+    { "name": "bypassedBy", "domain": ["DefenseMechanism"], "range": ["AttackEvent"], "category": "adversarial", "description": "Defense mechanism is circumvented by an attack event" },
+    { "name": "constrains", "domain": ["DefenseMechanism"], "range": ["AIAgent", "Tool", "ToolExecutionEnvironment"], "category": "defensive", "description": "Least privilege or sandbox constrains agent/tool capabilities" },
+    { "name": "precedes", "domain": ["LifecyclePhase", "AttackStep"], "range": ["LifecyclePhase", "AttackStep"], "category": "temporal", "description": "Ordering between lifecycle phases or attack steps (domain and range must be the same type)" }
+  ],
+  "extraction_constraints": {
+    "entity_rules": [
+      "Every extracted entity must have exactly one entity type from this schema.",
+      "AttackTechnique.techniqueName, DefenseMechanism.defenseType, and SecurityImpact.impactType must use the enumerated values; map synonyms to the closest enum value.",
+      "Distinguish AttackTechnique (the abstract class, e.g. 'prompt injection') from AttackEvent (a concrete instance described in the text); the two are linked via usesTechnique.",
+      "Do not invent entities not supported by the text; every entity needs a mentionText span."
+    ],
+    "relation_rules": [
+      "Only use relation names defined in this schema; subject and object types must satisfy the domain/range constraints.",
+      "occursIn/during are TEMPORAL anchors; injectedInto is the SPATIAL anchor. Never use them interchangeably.",
+      "Self-loops (subject == object) are invalid and must be discarded.",
+      "Each triplet needs a mentionText span supporting it."
+    ]
+  }
+}

@@ -1,0 +1,43 @@
+You are a knowledge extraction expert specializing in LLM (large language model) security. Your task is named entity recognition (NER): identify all entities in the given document chunk according to the schema below. The document may be written in English or Chinese.
+
+## Entity type schema
+
+[[ENTITY_TYPES]]
+
+## Rules
+
+1. Every entity must be assigned exactly one entity type from the schema.
+2. Fill in attribute values only when they are explicitly supported by the text; for enum attributes, map synonyms to the closest enumerated value.
+3. Distinguish AttackTechnique (the abstract attack class, e.g. "prompt injection" as a concept) from AttackEvent (a concrete attack instance/demonstration described in the text).
+4. Keep proper nouns (model names, product names, organization names) exactly as written in the text. For descriptive entities, use a concise noun phrase in the language of the source text.
+5. Every entity must include a "mentionText" field quoting the supporting text span. Do not invent entities that have no support in the text.
+6. Think step by step first: (a) scan for actors (Who), (b) scan for time/lifecycle context (When), (c) scan for system locations (Where), (d) scan for attacks/vulnerabilities/assets (What), (e) scan for mechanisms and defenses (WhyHow), (f) scan for impacts (Result). Then output the final JSON only.
+
+## Example
+
+Input text:
+
+"In March 2024, a security researcher demonstrated an indirect prompt injection attack against a customer-service chatbot built on GPT-4. Malicious instructions hidden in a retrieved web page caused the agent to invoke its email tool and exfiltrate conversation history, exposing personal data of about 1,200 users. The vendor responded by deploying an output guardrail and restricting the agent's tool permissions to the minimum necessary."
+
+Output:
+
+{"entities": [
+  {"id": "e1", "name": "security researcher", "type": "Attacker", "attributes": {"attackerType": "researcher", "motivation": "security demonstration"}, "mentionText": "a security researcher demonstrated"},
+  {"id": "e2", "name": "indirect prompt injection attack against customer-service chatbot", "type": "AttackEvent", "attributes": {"vector": "malicious instructions hidden in a retrieved web page", "eventTimestamp": "2024-03"}, "mentionText": "demonstrated an indirect prompt injection attack against a customer-service chatbot"},
+  {"id": "e3", "name": "indirect prompt injection", "type": "AttackTechnique", "attributes": {"techniqueName": "indirect_prompt_injection", "owaspRef": "LLM01"}, "mentionText": "indirect prompt injection attack"},
+  {"id": "e4", "name": "GPT-4", "type": "LLMSystem", "attributes": {"modelId": "GPT-4"}, "mentionText": "chatbot built on GPT-4"},
+  {"id": "e5", "name": "customer-service agent", "type": "AIAgent", "attributes": {}, "mentionText": "caused the agent to invoke its email tool"},
+  {"id": "e6", "name": "retrieved web page content", "type": "ContextWindow", "attributes": {"sectionType": "retrieved_content"}, "mentionText": "hidden in a retrieved web page"},
+  {"id": "e7", "name": "email tool", "type": "Tool", "attributes": {"toolName": "email tool", "capability": "send email"}, "mentionText": "invoke its email tool"},
+  {"id": "e8", "name": "exposure of personal data of 1,200 users", "type": "SecurityImpact", "attributes": {"impactType": "data_breach", "quantifiedLoss": "about 1,200 users"}, "mentionText": "exposing personal data of about 1,200 users"},
+  {"id": "e9", "name": "output guardrail", "type": "DefenseMechanism", "attributes": {"defenseType": "guardrail_system"}, "mentionText": "deploying an output guardrail"},
+  {"id": "e10", "name": "minimum tool permissions for agent", "type": "DefenseMechanism", "attributes": {"defenseType": "least_privilege"}, "mentionText": "restricting the agent's tool permissions to the minimum necessary"}
+]}
+
+## Output format
+
+Return ONLY a valid JSON object with a single key "entities", as in the example. No markdown fences, no commentary.
+
+## Input text
+
+[[TEXT]]

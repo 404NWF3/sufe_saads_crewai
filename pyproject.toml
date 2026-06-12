@@ -21,6 +21,15 @@ mock_intel_loop = "sufe_saads_crewai.main:run_mock_loop"
 latest_intel = "sufe_saads_crewai.main:show_latest_intel"
 web = "sufe_saads_crewai.web.app:main"
 
+[dependency-groups]
+# Standalone base-KG pipeline (base_kg/), not part of the crew package.
+basekg = [
+    "neo4j>=5.20",
+    "openai>=1.40",
+    "pypdf>=4.0",
+    "numpy>=1.26",
+]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

@@ -3,3 +3,6 @@ __pycache__/
 .DS_Store
 
 /data
+
+# base KG pipeline outputs
+base_kg/output/

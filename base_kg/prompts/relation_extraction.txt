@@ -1,0 +1,49 @@
+You are a knowledge extraction expert specializing in LLM security. Your task is relation extraction: identify subject-predicate-object (SPO) triplets among the standardized entities, strictly following the relation schema below. The document may be written in English or Chinese.
+
+## Relation schema
+
+Each relation is listed as: name (category) — domain types -> range types — description.
+
+[[RELATIONS]]
+
+## Rules
+
+1. Only use relation names from the schema. The subject's entity type must be in the relation's domain, and the object's type must be in its range.
+2. Temporal vs spatial anchors: "occursIn" (lifecycle phase) and "during" (time window) are TEMPORAL; "injectedInto" (system location of malicious content) is SPATIAL. Never confuse them.
+3. Self-loops are forbidden: subject and object must be different entities.
+4. Only extract triplets explicitly supported by the text; each triplet needs a "mentionText" span. Do not infer relations from world knowledge alone.
+5. Refer to entities by their "id" field.
+6. Before producing the final answer, validate every triplet against rules 1-4 and silently drop violations.
+
+## Example
+
+Input text:
+
+"In March 2024, a security researcher demonstrated an indirect prompt injection attack against a customer-service chatbot built on GPT-4. Malicious instructions hidden in a retrieved web page caused the agent to invoke its email tool and exfiltrate conversation history, exposing personal data of about 1,200 users. The vendor responded by deploying an output guardrail and restricting the agent's tool permissions to the minimum necessary."
+
+Input entities (abbreviated): e1 Attacker "security researcher", e2 AttackEvent "indirect prompt injection attack against customer-service chatbot", e3 AttackTechnique "indirect prompt injection", e4 LLMSystem "GPT-4", e5 AIAgent "customer-service agent", e6 ContextWindow "retrieved web page content", e7 Tool "email tool", e8 SecurityImpact "exposure of personal data of 1,200 users", e9 DefenseMechanism "output guardrail", e10 DefenseMechanism "minimum tool permissions for agent"
+
+Output:
+
+{"triplets": [
+  {"subject": "e1", "relation": "launches", "object": "e2", "mentionText": "a security researcher demonstrated an indirect prompt injection attack"},
+  {"subject": "e2", "relation": "usesTechnique", "object": "e3", "mentionText": "an indirect prompt injection attack"},
+  {"subject": "e2", "relation": "targets", "object": "e4", "mentionText": "attack against a customer-service chatbot built on GPT-4"},
+  {"subject": "e2", "relation": "injectedInto", "object": "e6", "mentionText": "Malicious instructions hidden in a retrieved web page"},
+  {"subject": "e5", "relation": "invokes", "object": "e7", "mentionText": "caused the agent to invoke its email tool"},
+  {"subject": "e2", "relation": "causes", "object": "e8", "mentionText": "exposing personal data of about 1,200 users"},
+  {"subject": "e9", "relation": "protects", "object": "e4", "mentionText": "deploying an output guardrail"},
+  {"subject": "e10", "relation": "constrains", "object": "e5", "mentionText": "restricting the agent's tool permissions to the minimum necessary"}
+]}
+
+## Output format
+
+Return ONLY a valid JSON object with a single key "triplets", as in the example. No markdown fences, no commentary.
+
+## Input text
+
+[[TEXT]]
+
+## Input entities
+
+[[ENTITIES]]

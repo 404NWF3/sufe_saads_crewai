@@ -1,10 +1,10 @@
 {
-  "run_id": "real-258ad49f",
+  "run_id": "real-7eb09b4b",
   "status": "succeeded",
-  "path": "real-258ad49f.json",
-  "saved_at": "2026-06-10T14:11:54.948558+00:00",
-  "raw_items": 85,
-  "rounds": 5,
+  "path": "real-7eb09b4b.json",
+  "saved_at": "2026-06-11T03:27:39.050211+00:00",
+  "raw_items": 768,
+  "rounds": 50,
   "knowledge_graphs": {
     "total": 0,
     "succeeded": 0,
