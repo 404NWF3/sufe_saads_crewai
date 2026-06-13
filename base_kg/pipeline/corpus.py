@@ -22,6 +22,17 @@ _CJK = re.compile(r"[一-鿿]")
 # Broken PDFs can yield lone surrogates and control chars that are not valid
 # UTF-8; strip them so the chunk stays JSON-serializable.
 _INVALID_CHARS = re.compile(r"[\ud800-\udfff\x00-\x08\x0b\x0c\x0e-\x1f]")
+# Bibliography headers; only honored in the tail of the text to avoid cutting
+# at in-text phrases like "see References".
+_REFERENCES_HEADER = re.compile(
+    r"\n\s*(References|REFERENCES|Bibliography|参考文献)\s*[:：]?\s*\n"
+)
+
+
+def _trim_references(text: str) -> str:
+    tail_start = int(len(text) * 0.4)
+    match = _REFERENCES_HEADER.search(text, tail_start)
+    return text[: match.start()].rstrip() if match else text
 
 
 @dataclass
@@ -48,6 +59,7 @@ def extract_pdf_text(path: Path, max_chars: int) -> tuple[str, int]:
     merged = _INVALID_CHARS.sub("", merged)
     merged = _WHITESPACE.sub(" ", merged)
     merged = _BLANK_LINES.sub("\n\n", merged)
+    merged = _trim_references(merged)
     return merged[:max_chars].strip(), len(reader.pages)
 
 

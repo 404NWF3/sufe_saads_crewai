@@ -590,6 +590,25 @@ wheels = [
 ]
 
 [[package]]
+name = "claude-agent-sdk"
+version = "0.2.99"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio" },
+    { name = "mcp" },
+    { name = "sniffio" },
+    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/42/76/6d4d26e0c88684ad468f00d03b6b5fa90ae01e7d49cfa962e2a3d50be26c/claude_agent_sdk-0.2.99.tar.gz", hash = "sha256:1f24642020b374fa54020d4ba642fab8abe8afdee881b97d011a984f5a06cb72", size = 253656, upload-time = "2026-06-12T04:35:32.056Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/01/a9/baf9b1bcd6530c05efdcd48d7c26c431e5503ff2dc6339c3ee5d2853bbd7/claude_agent_sdk-0.2.99-py3-none-macosx_11_0_arm64.whl", hash = "sha256:41ffbcfe068beab97430faef1712fffcd9776c81c3ba26adf4c3474dd35ae208", size = 65967353, upload-time = "2026-06-12T04:35:35.543Z" },
+    { url = "https://files.pythonhosted.org/packages/db/ca/cc2feec2a7771ddd87fae8bbc388d806cf8d6221419f4977263d681e595b/claude_agent_sdk-0.2.99-py3-none-macosx_11_0_x86_64.whl", hash = "sha256:acccd38dd31a3341ac1ccf28fa4e44832930c7d7146e28e9a69880bc76fdd9e5", size = 68028895, upload-time = "2026-06-12T04:35:39.066Z" },
+    { url = "https://files.pythonhosted.org/packages/99/7e/ab2d2beaed83b4812c4f4db8d1f73d61c9596b794ffd7bb281108407061f/claude_agent_sdk-0.2.99-py3-none-manylinux_2_17_aarch64.whl", hash = "sha256:cf14927e24b740011540979a2ffc04cb7d9020fe247dbb4e333836b86e9d0adb", size = 75561258, upload-time = "2026-06-12T04:35:42.968Z" },
+    { url = "https://files.pythonhosted.org/packages/64/70/1ba0ad670e32203a0db656e2260b5fee6c6f49ccf090fe17adcd4eba1b48/claude_agent_sdk-0.2.99-py3-none-manylinux_2_17_x86_64.whl", hash = "sha256:bdc0e7d90389da47c1bbbcd82d4e03e63bb532d1bd6fa6476ac8c5e731735e64", size = 75739375, upload-time = "2026-06-12T04:35:46.838Z" },
+    { url = "https://files.pythonhosted.org/packages/74/59/c840bfd9bb505cd12ca41d240c26a21ee5ee6441abbfcc53d9513ff6ef98/claude_agent_sdk-0.2.99-py3-none-win_amd64.whl", hash = "sha256:c62075d7db003b38cfb88e8f84ec622069ae014db64dd2d1ba27fc0262546c2a", size = 76350900, upload-time = "2026-06-12T04:35:51.018Z" },
+]
+
+[[package]]
 name = "click"
 version = "8.1.8"
 source = { registry = "https://pypi.org/simple" }
@@ -1369,6 +1388,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/e4/06/b56dfa750b44e86157093bc8fca0ab81dccbf5260510de4eaf1cb69b5b99/importlib_resources-7.1.0.tar.gz", hash = "sha256:0722d4c6212489c530f2a145a34c0a7a3b4721bc96a15fada5930e2a0b760708", size = 44985, upload-time = "2026-04-12T16:36:09.232Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/8a/db/55a262f3606bebcae07cc14095338471ad7c0bbcaa37707e6f0ee49725b7/importlib_resources-7.1.0-py3-none-any.whl", hash = "sha256:1bd7b48b4088eddb2cd16382150bb515af0bd2c70128194392725f82ad2c96a1", size = 37232, upload-time = "2026-04-12T16:36:08.219Z" },
+]
+
+[[package]]
+name = "iniconfig"
+version = "2.3.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/72/34/14ca021ce8e5dfedc35312d08ba8bf51fdd999c576889fc2c24cb97f4f10/iniconfig-2.3.0.tar.gz", hash = "sha256:c76315c77db068650d49c5b56314774a7804df16fee4402c1f19d6d15d8c4730", size = 20503, upload-time = "2025-10-18T21:55:43.219Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/cb/b1/3846dd7f199d53cb17f49cba7e651e9ce294d8497c8c150530ed11865bb8/iniconfig-2.3.0-py3-none-any.whl", hash = "sha256:f631c04d2c48c52b84d0d0549c99ff3859c98df65b3101406327ecc7d53fbf12", size = 7484, upload-time = "2025-10-18T21:55:41.639Z" },
 ]
 
 [[package]]
@@ -2852,6 +2880,15 @@ wheels = [
 ]
 
 [[package]]
+name = "pluggy"
+version = "1.6.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/f9/e2/3e91f31a7d2b083fe6ef3fa267035b518369d9511ffab804f839851d2779/pluggy-1.6.0.tar.gz", hash = "sha256:7dcc130b76258d33b90f61b658791dede3486c3e6bfb003ee5c9bfb396dd22f3", size = 69412, upload-time = "2025-05-15T12:30:07.975Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/54/20/4d324d65cc6d9205fabedc306948156824eb9f0ee1633355a8f7ec5c66bf/pluggy-1.6.0-py3-none-any.whl", hash = "sha256:e920276dd6813095e9377c0bc5566d94c932c33b27a3e3945d8389c374dd4746", size = 20538, upload-time = "2025-05-15T12:30:06.134Z" },
+]
+
+[[package]]
 name = "portalocker"
 version = "2.7.0"
 source = { registry = "https://pypi.org/simple" }
@@ -3445,6 +3482,24 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/e7/82/28175b2414effca1cdac8dc99f76d660e7a4fb0ceefa4b4ab8f5f6742925/pyproject_hooks-1.2.0.tar.gz", hash = "sha256:1e859bd5c40fae9448642dd871adf459e5e2084186e8d2c2a79a824c970da1f8", size = 19228, upload-time = "2024-09-29T09:24:13.293Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/bd/24/12818598c362d7f300f18e74db45963dbcb85150324092410c8b49405e42/pyproject_hooks-1.2.0-py3-none-any.whl", hash = "sha256:9e5c6bfa8dcc30091c74b0cf803c81fdd29d94f01992a7707bc97babb1141913", size = 10216, upload-time = "2024-09-29T09:24:11.978Z" },
+]
+
+[[package]]
+name = "pytest"
+version = "9.0.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "colorama", marker = "sys_platform == 'win32'" },
+    { name = "exceptiongroup", marker = "python_full_version < '3.11'" },
+    { name = "iniconfig" },
+    { name = "packaging" },
+    { name = "pluggy" },
+    { name = "pygments" },
+    { name = "tomli", marker = "python_full_version < '3.11'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/7d/0d/549bd94f1a0a402dc8cf64563a117c0f3765662e2e668477624baeec44d5/pytest-9.0.3.tar.gz", hash = "sha256:b86ada508af81d19edeb213c681b1d48246c1a91d304c6c81a427674c17eb91c", size = 1572165, upload-time = "2026-04-07T17:16:18.027Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d4/24/a372aaf5c9b7208e7112038812994107bc65a84cd00e0354a88c2c77a617/pytest-9.0.3-py3-none-any.whl", hash = "sha256:2c5efc453d45394fdd706ade797c0a81091eccd1d6e4bccfcd476e2b8e0ab5d9", size = 375249, upload-time = "2026-04-07T17:16:16.13Z" },
 ]
 
 [[package]]
@@ -4154,12 +4209,18 @@ dependencies = [
 ]
 
 [package.dev-dependencies]
+agentsdk = [
+    { name = "claude-agent-sdk" },
+]
 basekg = [
     { name = "neo4j" },
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "numpy", version = "2.4.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "openai" },
     { name = "pypdf" },
+]
+dev = [
+    { name = "pytest" },
 ]
 
 [package.metadata]
@@ -4170,12 +4231,14 @@ requires-dist = [
 ]
 
 [package.metadata.requires-dev]
+agentsdk = [{ name = "claude-agent-sdk", specifier = ">=0.2.99" }]
 basekg = [
     { name = "neo4j", specifier = ">=5.20" },
     { name = "numpy", specifier = ">=1.26" },
     { name = "openai", specifier = ">=1.40" },
     { name = "pypdf", specifier = ">=4.0" },
 ]
+dev = [{ name = "pytest", specifier = ">=9.0.3" }]
 
 [[package]]
 name = "sympy"

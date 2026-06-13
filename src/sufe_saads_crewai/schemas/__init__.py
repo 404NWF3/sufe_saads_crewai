@@ -77,6 +77,11 @@ from .persistence import (
     PersistenceOperationResult,
 )
 from .runtime import IntelRunBlackboard, RunBudget, RunMetrics
+from .sdk_decisions import (
+    CollectionPlanDecision,
+    SearchQueryProposal,
+    SourceSelectionDecision,
+)
 from .sources import (
     ApprovedSource,
     EvidenceExtraction,
@@ -99,6 +104,7 @@ __all__ = [
     "ApprovedSource",
     "BomResolution",
     "BomResolutionBatch",
+    "CollectionPlanDecision",
     "CollectionYieldAssessment",
     "CollectionBatchOutput",
     "CollectedItem",
@@ -148,9 +154,11 @@ __all__ = [
     "ScoredIntelRecord",
     "ScoreBreakdown",
     "SearchCompletenessAssessment",
+    "SearchQueryProposal",
     "SearchSemanticExpansionOutput",
     "SearchQueryPlan",
     "SearchReflectionDecision",
+    "SourceSelectionDecision",
     "SemanticGapExpansion",
     "RewriteDecisionOutput",
     "SourceExecutionStat",

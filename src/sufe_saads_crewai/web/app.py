@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from sufe_saads_crewai.kg import CtinexusKgGenerator, assess_kg_eligibility
-from sufe_saads_crewai.intel import RealIntelRunController
+from sufe_saads_crewai.intel import create_intel_controller
 from sufe_saads_crewai.persistence import JsonIntelRunStore
 from sufe_saads_crewai.schemas import IntelRunBlackboard, KgGenerationConfig, RawIntelItem
 from sufe_saads_crewai.topic_utils import TARGET_SECURITY_TOPICS
@@ -198,7 +198,7 @@ def _run_collection(
         lp_shot=lp_shot,
     )
 
-    result = RealIntelRunController(
+    result = create_intel_controller(
         run_goal=run_goal,
         initial_query=search_query,
         max_rounds=int(max_rounds),

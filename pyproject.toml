@@ -22,12 +22,18 @@ latest_intel = "sufe_saads_crewai.main:show_latest_intel"
 web = "sufe_saads_crewai.web.app:main"
 
 [dependency-groups]
+agentsdk = [
+    "claude-agent-sdk>=0.2.99",
+]
 # Standalone base-KG pipeline (base_kg/), not part of the crew package.
 basekg = [
     "neo4j>=5.20",
     "openai>=1.40",
     "pypdf>=4.0",
     "numpy>=1.26",
+]
+dev = [
+    "pytest>=9.0.3",
 ]
 
 [build-system]

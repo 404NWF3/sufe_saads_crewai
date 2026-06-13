@@ -18,13 +18,17 @@ T = TypeVar("T")
 
 
 class LLMClient:
-    def __init__(self, cfg: BaseKgConfig):
+    def __init__(self, cfg: BaseKgConfig, api_key: str | None = None):
         self.cfg = cfg
         self._client = OpenAI(
-            api_key=cfg.llm_api_key or "EMPTY",
+            api_key=api_key or cfg.llm_api_key or "EMPTY",
             base_url=cfg.llm_base_url or None,
         )
         self._last_request_at = 0.0
+        # Zhipu reasoning models accept a thinking switch via extra_body.
+        self._extra_body = (
+            {"thinking": {"type": "disabled"}} if cfg.disable_thinking else None
+        )
 
     def _throttled(self, fn: Callable[[], T]) -> T:
         """Pace requests and retry rate-limit/transient errors with backoff."""
@@ -44,24 +48,32 @@ class LLMClient:
                 last_exc = exc
         raise last_exc  # type: ignore[misc]
 
-    def chat(self, prompt: str, temperature: float | None = None) -> str:
+    def chat(
+        self,
+        prompt: str,
+        temperature: float | None = None,
+        model: str | None = None,
+    ) -> str:
         response = self._throttled(
             lambda: self._client.chat.completions.create(
-                model=self.cfg.llm_model,
+                model=model or self.cfg.llm_model,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=self.cfg.llm_temperature
                 if temperature is None
                 else temperature,
+                extra_body=self._extra_body,
             )
         )
         return (response.choices[0].message.content or "").strip()
 
-    def chat_json(self, prompt: str, retries: int = 2) -> dict[str, Any]:
+    def chat_json(
+        self, prompt: str, retries: int = 2, model: str | None = None
+    ) -> dict[str, Any]:
         """Call the LLM and parse a JSON object, retrying with the parse error appended."""
         attempt_prompt = prompt
         last_error: Exception | None = None
         for _ in range(retries + 1):
-            raw = self.chat(attempt_prompt)
+            raw = self.chat(attempt_prompt, model=model)
             try:
                 return _parse_json_object(raw)
             except (json.JSONDecodeError, ValueError) as exc:

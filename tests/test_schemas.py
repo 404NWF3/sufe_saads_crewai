@@ -127,3 +127,41 @@ class SchemaTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SdkDecisionSchemaTests(unittest.TestCase):
+    def test_collection_plan_decision_validates_and_forbids_extras(self) -> None:
+        from sufe_saads_crewai.schemas import (
+            CollectionPlanDecision,
+            SearchQueryProposal,
+            SourceSelectionDecision,
+        )
+
+        decision = CollectionPlanDecision.model_validate(
+            {
+                "proposals": [
+                    {
+                        "source_name": "nvd_cve_api",
+                        "query_text": "MLflow deserialization",
+                        "params": {"nvd_cwe_id": "CWE-502"},
+                        "rationale": "supply chain",
+                    }
+                ],
+                "rationale": "plan",
+            }
+        )
+        self.assertEqual(decision.proposals[0].params["nvd_cwe_id"], "CWE-502")
+
+        with self.assertRaises(ValidationError):
+            SearchQueryProposal.model_validate(
+                {"source_name": "unknown_source", "query_text": "q"}
+            )
+        with self.assertRaises(ValidationError):
+            SourceSelectionDecision.model_validate(
+                {
+                    "selected_sources": ["arxiv_api"],
+                    "follow_bandit": True,
+                    "rationale": "r",
+                    "extra_field": "forbidden",
+                }
+            )

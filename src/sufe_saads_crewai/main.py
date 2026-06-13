@@ -6,7 +6,7 @@ import sys
 import warnings
 
 from sufe_saads_crewai.crew import SufeSaadsCrewai
-from sufe_saads_crewai.intel import RealIntelRunController, run_mock_autonomous_loop
+from sufe_saads_crewai.intel import create_intel_controller, run_mock_autonomous_loop
 from sufe_saads_crewai.persistence import JsonIntelRunStore
 from sufe_saads_crewai.schemas import IntelRunBlackboard
 from sufe_saads_crewai.tools import default_registered_api_sources
@@ -31,7 +31,7 @@ def run():
     search_query = "LLM prompt injection jailbreak RAG poisoning model supply chain"
     try:
         run_store = JsonIntelRunStore()
-        result = RealIntelRunController(
+        result = create_intel_controller(
             run_goal=run_goal,
             initial_query=search_query,
             max_rounds=50,
@@ -132,7 +132,7 @@ def run_with_trigger():
 
     try:
         run_store = JsonIntelRunStore()
-        result = RealIntelRunController(
+        result = create_intel_controller(
             run_goal=trigger_payload.get(
                 "run_goal",
                 "Collect comprehensive LLM security intelligence.",

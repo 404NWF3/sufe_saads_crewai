@@ -1,6 +1,6 @@
 # SUFE SAADS CrewAI 项目进展说明
 
-更新时间：2026-06-10
+更新时间：2026-06-13
 
 ## 1. 当前技术栈
 
@@ -148,3 +148,19 @@ http://localhost:8000
 - 如果使用 OpenAI-compatible 自定义模型服务，KG 适配层会在 CTINexus 调用 LiteLLM 时把裸模型名自动规范为 `openai/<model>`，例如 `glm-4.7` 会转为 `openai/glm-4.7`。
 - Dockerfile 当前选择在线 `pip install .`，适合快速部署；生产环境建议在同步依赖后补充 lockfile 级安装。
 - Web UI 会在当前进程设置 `CTINEXUS_API_KEY` 与 `CTINEXUS_BASE_URL`，适合单用户本地部署；多用户部署需要改为任务级隔离。
+
+## 6. 情报采集智能体后续路线
+
+情报采集智能体的下一阶段路线（迁移 Claude Agent SDK、四个自主决策能力、相关性三层过滤、评估基线与分阶段实施计划）见 [INTEL_AGENT_SDK_ROADMAP.md](INTEL_AGENT_SDK_ROADMAP.md)（2026-06-12）。
+
+### 6.1 路线实施进展（2026-06-13）
+
+P0-P3 的代码与评估资产已落地，详见 ROADMAP 第 10 章状态标注。摘要：
+
+- **P0 spike（验收通过）**：claude-agent-sdk `0.2.99` 已装入 `agentsdk` dependency group；spike 脚本在 `spikes/agent_sdk_glm/`。SDK 端点已多 provider 化（`INTEL_SDK_PROVIDER=deepseek|glm`，`agent_runtime/client.py`）。**DeepSeek Anthropic 兼容端点（`https://api.deepseek.com/anthropic`，deepseek-v4-pro / deepseek-v4-flash）全矩阵实测达标**：工具调用 100%（≥95% 达标线）、tool-forcing 结构化决策解析 100%（≥90% 达标线）、多轮/长会话稳定；subagent、prompt caching、json_schema output_format 三项不达标但均有既定降级方案且不影响混合架构（详见 ROADMAP 第 5 章）。GLM 端点因 Coding Plan 订阅到期保留为备选（429/1309，同账号 OpenAI 兼容路径正常）。
+- **P1 骨架**：`agent_runtime/`（SDK 工厂、`structured_decision` tool-forcing + Pydantic 校验 + fallback 契约、PreToolUse/PostToolUse hooks）、`tools_mcp/source_server.py`（4 个 typed `@tool`，高级算子直接暴露）、`intel/rules.py`（real_loop 全部确定性规则抽为共享模块，双引擎共用）、`intel/sdk_loop.py`（SDK 主控制器，三层 fallback、遥测落盘 `engine_telemetry`）、`INTEL_ENGINE=rules|sdk` 工厂开关（默认 rules，`main.py` 与 Web 均经 `create_intel_controller`）。
+- **P2 四能力**：源选择（`intel/bandit.py` UCB1 + agent 否决，状态持久化 `data/bandit_state.json`）、检索词自由生成（`CollectionPlanDecision`，代码侧参数白名单校验）、高级检索算子（NVD CWE/CVSS/时间窗/KEV、arXiv 布尔与 cat:、OSV ecosystem/purl）、轮次终止（边际收益特征 + `min_rounds`/`max_rounds` 安全阀）；三层相关性过滤 `intel/relevance.py`（规则→embedding→flash LLM，JSONL 缓存，`metadata.relevance.method` 落盘）；上下文摘要 `intel/context.py`（≤2-3K tokens，禁 dump 原文）。
+- **P3 评估资产**：基准任务集 `tests/eval_goals.json`（7 个冻结目标）；A/B 协议脚本 `scripts/eval_ab.py`（已含第 9 章效率/可靠性指标 + 高级参数占比 `advanced_params` + 终止偏差 `stop_round`，rules 与 sdk 引擎均已冒烟跑通）；bandit 离线回放 `scripts/bandit_replay.py` —— **在 33 个历史 run / 617 轮上实测 bandit regret 1.063 < 轮询 regret 1.245，验收达标**。
+- **测试**：新增 `test_intel_rules` / `test_sdk_loop` / `test_bandit` / `test_relevance` / `test_agent_runtime`（含 provider 解析）/ `test_engine_factory`，全套 77 用例通过；SDK 引擎的决策路径与 fallback 路径均有确定性单测（fake runner，不耗 API）。
+
+**下一步（P3 收尾）**：① 按 `tests/eval_goals.json` 跑完整 A/B（`uv run python scripts/eval_ab.py`，7 目标 × 2 引擎 × 3 重复，消耗真实配额）与人工抽检；② 达标后把 `INTEL_ENGINE` 默认切 `sdk`（P3 验收）；③ 评审通过后执行 P4 移除 CrewAI。SDK 引擎当前为"结构化决策 + 控制器执行"的混合模式；DeepSeek 端点工具调用可靠性 100% 已在技术上解锁完全 agentic 采集会话（`tools_mcp`/hooks 就绪），是否切换待 A/B 数据评审。

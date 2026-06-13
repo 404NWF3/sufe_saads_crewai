@@ -26,16 +26,17 @@ def main() -> None:
     sub = parser.add_subparsers(dest="stage", required=True)
 
     p_corpus = sub.add_parser("corpus", help="extract text from data/kg-source PDFs")
+    p_filter = sub.add_parser("filter", help="cheap relevance pre-filter (skip non-LLM-security docs)")
     p_extract = sub.add_parser("extract", help="run 3-stage LLM extraction per document")
     p_extract.add_argument("--overwrite", action="store_true")
     sub.add_parser("load", help="load extractions into Neo4j")
     p_eval = sub.add_parser("evaluate", help="dual-perspective quality assessment")
     p_eval.add_argument("--skip-accuracy", action="store_true")
-    p_all = sub.add_parser("all", help="corpus -> extract -> load -> evaluate")
+    p_all = sub.add_parser("all", help="corpus -> filter -> extract -> load -> evaluate")
     p_all.add_argument("--overwrite", action="store_true")
     p_all.add_argument("--skip-accuracy", action="store_true")
 
-    for p in (p_corpus, p_extract, p_eval, p_all, sub.choices["load"]):
+    for p in (p_corpus, p_filter, p_extract, p_eval, p_all, sub.choices["load"]):
         p.add_argument("--limit", type=int, default=None, help="max documents to process")
 
     args = parser.parse_args()
@@ -46,6 +47,12 @@ def main() -> None:
 
         counts = build_corpus(cfg.source_dir, cfg.corpus_path, cfg.max_chunk_chars, args.limit)
         print(f"[corpus] done: {counts} -> {cfg.corpus_path}")
+
+    if args.stage in ("filter", "all"):
+        from .relevance import run_filter
+
+        counts = run_filter(cfg, limit=args.limit)
+        print(f"[filter] done: {counts} -> {cfg.relevance_path}")
 
     if args.stage in ("extract", "all"):
         from .extract import run_extraction

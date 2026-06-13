@@ -1,0 +1,74 @@
+{
+  "version": "2026-06-13",
+  "description": "Frozen benchmark goals for INTEL_ENGINE A/B evaluation (roadmap chapter 9). Do not edit goals between comparison runs; bump version instead.",
+  "protocol": {
+    "engines": ["rules", "sdk"],
+    "repeats_per_engine": 3,
+    "notes": "Same budget per engine. Metrics derive from persisted blackboards; precision additionally needs manual spot-check (50 items/config, two annotators) plus an LLM judge from a different provider than the collection model."
+  },
+  "goals": [
+    {
+      "goal_id": "prompt-injection-core",
+      "run_goal": "Collect recent intelligence on prompt injection attacks against LLM applications.",
+      "initial_query": "LLM prompt injection indirect prompt injection chatbot vulnerability",
+      "target_topics": ["prompt injection"],
+      "max_rounds": 5,
+      "max_results_per_round": 60
+    },
+    {
+      "goal_id": "jailbreak-safety-bypass",
+      "run_goal": "Collect intelligence on jailbreak and safety-guardrail bypass techniques for aligned LLMs.",
+      "initial_query": "LLM jailbreak guardrail bypass adversarial prompt",
+      "target_topics": ["jailbreak"],
+      "max_rounds": 5,
+      "max_results_per_round": 60
+    },
+    {
+      "goal_id": "rag-poisoning",
+      "run_goal": "Collect intelligence on RAG pipeline poisoning and vector database attacks.",
+      "initial_query": "RAG poisoning embedding vector database retrieval attack",
+      "target_topics": ["rag poisoning", "data leakage"],
+      "max_rounds": 5,
+      "max_results_per_round": 60
+    },
+    {
+      "goal_id": "agent-tool-abuse",
+      "run_goal": "Collect intelligence on autonomous agent tool abuse and agent framework vulnerabilities.",
+      "initial_query": "LLM agent tool abuse function calling code execution vulnerability",
+      "target_topics": ["agent tool abuse"],
+      "max_rounds": 5,
+      "max_results_per_round": 60
+    },
+    {
+      "goal_id": "model-supply-chain",
+      "run_goal": "Collect intelligence on AI model supply chain compromises and unsafe model loading.",
+      "initial_query": "model supply chain unsafe deserialization MLflow Hugging Face vulnerability",
+      "target_topics": ["model supply chain"],
+      "max_rounds": 5,
+      "max_results_per_round": 60
+    },
+    {
+      "goal_id": "data-leakage",
+      "run_goal": "Collect intelligence on LLM data leakage and training data extraction.",
+      "initial_query": "LLM data leakage training data extraction sensitive information exposure",
+      "target_topics": ["data leakage"],
+      "max_rounds": 5,
+      "max_results_per_round": 60
+    },
+    {
+      "goal_id": "broad-llm-security",
+      "run_goal": "Collect comprehensive LLM security intelligence across all target topics.",
+      "initial_query": "LLM prompt injection jailbreak RAG poisoning model supply chain",
+      "target_topics": [
+        "prompt injection",
+        "jailbreak",
+        "agent tool abuse",
+        "data leakage",
+        "model supply chain",
+        "rag poisoning"
+      ],
+      "max_rounds": 8,
+      "max_results_per_round": 80
+    }
+  ]
+}
