@@ -8,6 +8,7 @@ import unittest
 from pydantic import BaseModel
 
 from sufe_saads_crewai.agent_runtime.structured import StructuredDecisionEngine
+from sufe_saads_crewai.intel import rules
 from sufe_saads_crewai.intel.bandit import SourceBandit
 from sufe_saads_crewai.intel.sdk_loop import SdkIntelRunController
 from sufe_saads_crewai.persistence import JsonIntelRunStore
@@ -217,9 +218,12 @@ class SdkLoopDecisionTests(unittest.TestCase):
                 decision_engine=engine,
                 bandit=SourceBandit(state_path=None),
                 relevance_pipeline=None,
+                target_topics=["prompt injection"],
+                coverage_quota=1,
             ).run()
 
-            # agent termination decision honored: one round despite max_rounds=3
+            # coverage met (1 prompt-injection item >= quota), so the agent's stop
+            # decision is honored: one round despite max_rounds=3
             self.assertEqual(len(result.query_history), 1)
             # agent collection plan executed with whitelisted advanced params only
             executed_queries = {call["query_text"] for call in tool.calls}
@@ -265,8 +269,184 @@ class SdkLoopDecisionTests(unittest.TestCase):
                 decision_engine=_scripted_engine(script),
                 bandit=SourceBandit(state_path=None),
                 relevance_pipeline=None,
+                target_topics=["prompt injection"],
+                coverage_quota=1,
             ).run()
             self.assertGreaterEqual(len(result.query_history), 2)
+
+
+class SdkLoopCoverageGateTests(unittest.TestCase):
+    def test_coverage_gate_blocks_early_stop_until_max_rounds(self) -> None:
+        # Agent always wants to stop, but the fake source only yields
+        # prompt-injection items, so the "jailbreak" target stays below quota and
+        # the coverage gate forces collection to continue to max_rounds.
+        script = {
+            "SourceSelectionDecision": {
+                "selected_sources": ["arxiv_api"],
+                "follow_bandit": True,
+                "rationale": "r",
+            },
+            "CollectionPlanDecision": {
+                "proposals": [
+                    {
+                        "source_name": "arxiv_api",
+                        "query_text": "scripted arxiv",
+                        "params": {"arxiv_search_query": '(all:"x") AND (cat:cs.CR)'},
+                        "rationale": "r",
+                    }
+                ],
+                "rationale": "r",
+            },
+            "RewriteDecisionOutput": {
+                "should_rewrite": True,
+                "rewritten_query": "next mission query",
+                "target_topics": ["jailbreak"],
+                "topics_to_stop": [],
+                "rationale": "r",
+                "confidence": 0.8,
+            },
+            "CompletenessDecisionOutput": {
+                "should_continue": False,
+                "completeness_score": 0.95,
+                "missing_topics": [],
+                "recommended_next_query": None,
+                "stop_reason": "agent wants to stop",
+                "rationale": "r",
+            },
+        }
+        with TemporaryDirectory() as temp_dir:
+            result = SdkIntelRunController(
+                run_goal="g",
+                initial_query="LLM prompt injection jailbreak",
+                max_rounds=4,
+                run_store=JsonIntelRunStore(Path(temp_dir) / "intel_runs"),
+                source_tool=FakeRegisteredSourceTool(),
+                decision_engine=_scripted_engine(script),
+                bandit=SourceBandit(state_path=None),
+                relevance_pipeline=None,
+                target_topics=["prompt injection", "jailbreak"],
+                coverage_quota=1,
+                min_new_relevant_per_call=0.0,  # isolate: disable the stall valve
+            ).run()
+            # coverage gate overrides the agent's stop until the hard round cap
+            self.assertEqual(len(result.query_history), 4)
+            self.assertIn(
+                "jailbreak",
+                rules.quota_open_gaps(
+                    result.raw_items, ["prompt injection", "jailbreak"], 1
+                ),
+            )
+
+    def test_coverage_gate_synthesizes_query_when_agent_offers_none(self) -> None:
+        # Agent declines to rewrite (no next query), but a target topic is still
+        # uncovered: the loop must synthesize a gap-targeted query and continue.
+        script = {
+            "SourceSelectionDecision": {
+                "selected_sources": ["arxiv_api"],
+                "follow_bandit": True,
+                "rationale": "r",
+            },
+            "CollectionPlanDecision": {
+                "proposals": [
+                    {
+                        "source_name": "arxiv_api",
+                        "query_text": "scripted arxiv",
+                        "params": {},
+                        "rationale": "r",
+                    }
+                ],
+                "rationale": "r",
+            },
+            "RewriteDecisionOutput": {
+                "should_rewrite": False,
+                "rewritten_query": None,
+                "target_topics": [],
+                "topics_to_stop": ["prompt injection", "jailbreak"],
+                "rationale": "agent thinks it is done",
+                "confidence": 0.9,
+            },
+            "CompletenessDecisionOutput": {
+                "should_continue": False,
+                "completeness_score": 0.95,
+                "missing_topics": [],
+                "recommended_next_query": None,
+                "stop_reason": "agent wants to stop",
+                "rationale": "r",
+            },
+        }
+        with TemporaryDirectory() as temp_dir:
+            result = SdkIntelRunController(
+                run_goal="g",
+                initial_query="LLM prompt injection jailbreak",
+                max_rounds=3,
+                run_store=JsonIntelRunStore(Path(temp_dir) / "intel_runs"),
+                source_tool=FakeRegisteredSourceTool(),
+                decision_engine=_scripted_engine(script),
+                bandit=SourceBandit(state_path=None),
+                relevance_pipeline=None,
+                target_topics=["prompt injection", "jailbreak"],
+                coverage_quota=1,
+                min_new_relevant_per_call=0.0,  # isolate: disable the stall valve
+            ).run()
+            self.assertGreaterEqual(len(result.query_history), 2)
+            self.assertTrue(
+                any(
+                    "Coverage gate" in (action.rationale or "")
+                    for action in result.action_history
+                )
+            )
+
+
+class SdkLoopStallTerminationTests(unittest.TestCase):
+    def test_stall_overrides_coverage_gate_and_stops_early(self) -> None:
+        # The "jailbreak" target is never satisfied (fake source only yields
+        # prompt-injection items), so the coverage gate would otherwise run to
+        # max_rounds. A high stall threshold marks every round as low-yield, so
+        # the stall valve must stop the run early and report the unreached topic.
+        with TemporaryDirectory() as temp_dir:
+            result = SdkIntelRunController(
+                run_goal="g",
+                initial_query="LLM prompt injection jailbreak",
+                max_rounds=6,
+                run_store=JsonIntelRunStore(Path(temp_dir) / "intel_runs"),
+                source_tool=FakeRegisteredSourceTool(),
+                decision_engine=_failing_engine(),
+                bandit=SourceBandit(state_path=None),
+                relevance_pipeline=None,
+                target_topics=["prompt injection", "jailbreak"],
+                coverage_quota=1,
+                stall_patience=2,
+                min_new_relevant_per_call=10_000.0,  # force "stalled" after 2 rounds
+            ).run()
+            self.assertGreaterEqual(len(result.query_history), 2)
+            self.assertLess(len(result.query_history), 6)  # stopped before the cap
+            self.assertIn(
+                "jailbreak",
+                rules.quota_open_gaps(
+                    result.raw_items, ["prompt injection", "jailbreak"], 1
+                ),
+            )
+            self.assertIn("search exhausted", result.action_history[-1].rationale)
+
+    def test_high_yield_does_not_stall_and_runs_to_cap(self) -> None:
+        # With the stall threshold at 0, no round is ever "stalled", so the
+        # coverage gate keeps the run going to max_rounds while a gap is open.
+        with TemporaryDirectory() as temp_dir:
+            result = SdkIntelRunController(
+                run_goal="g",
+                initial_query="LLM prompt injection jailbreak",
+                max_rounds=4,
+                run_store=JsonIntelRunStore(Path(temp_dir) / "intel_runs"),
+                source_tool=FakeRegisteredSourceTool(),
+                decision_engine=_failing_engine(),
+                bandit=SourceBandit(state_path=None),
+                relevance_pipeline=None,
+                target_topics=["prompt injection", "jailbreak"],
+                coverage_quota=1,
+                stall_patience=2,
+                min_new_relevant_per_call=0.0,
+            ).run()
+            self.assertEqual(len(result.query_history), 4)
 
 
 if __name__ == "__main__":

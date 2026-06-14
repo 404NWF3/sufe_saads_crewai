@@ -111,6 +111,9 @@ class SdkIntelRunController:
         bandit: SourceBandit | None = None,
         relevance_pipeline: RelevancePipeline | None | str = "default",
         min_rounds: int | None = None,
+        coverage_quota: int | None = None,
+        stall_patience: int | None = None,
+        min_new_relevant_per_call: float | None = None,
     ) -> None:
         self.run_goal = run_goal
         self.initial_query = initial_query
@@ -128,6 +131,17 @@ class SdkIntelRunController:
         else:
             self.relevance_pipeline = relevance_pipeline
         self.min_rounds = min_rounds if min_rounds is not None else _env_int("INTEL_MIN_ROUNDS", 1)
+        self.coverage_quota = (
+            coverage_quota if coverage_quota is not None else rules.coverage_quota()
+        )
+        self.stall_patience = (
+            stall_patience if stall_patience is not None else rules.stall_patience()
+        )
+        self.min_new_relevant_per_call = (
+            min_new_relevant_per_call
+            if min_new_relevant_per_call is not None
+            else rules.min_new_relevant_per_call()
+        )
         self.raw_item_batches: list[RawIntelItemBatch] = []
         self._executed_source_query_keys: set[str] = set()
         self._latest_semantic_expansion: SearchSemanticExpansionOutput | None = None
@@ -190,6 +204,7 @@ class SdkIntelRunController:
             bandit_summary=(
                 self.bandit.render_summary(bucket) if self.bandit is not None else None
             ),
+            info_gain=self._latest_info_gain(blackboard),
         )
 
         selected_sources = self._decide_sources(blackboard, query_plan, bucket, context_digest)
@@ -254,6 +269,7 @@ class SdkIntelRunController:
             bandit_summary=(
                 self.bandit.render_summary(bucket) if self.bandit is not None else None
             ),
+            info_gain=self._latest_info_gain(blackboard),
         )
         reflection = self._decide_rewrite(blackboard, gap_analysis, post_context)
         if reflection.rewritten_queries:
@@ -285,7 +301,37 @@ class SdkIntelRunController:
                 )
             )
             return False, current_query
-        if not reflection.rewritten_queries:
+
+        next_query = (
+            reflection.rewritten_queries[0].query_text
+            if reflection.rewritten_queries
+            else None
+        )
+        if next_query is None:
+            # Coverage gate forced continuation but the agent proposed no query:
+            # synthesize a fresh query aimed at the under-quota target topics.
+            open_gaps = rules.quota_open_gaps(
+                blackboard.raw_items, self.target_topics, self.coverage_quota
+            )
+            if open_gaps:
+                next_query = rules.non_repeating_gap_query(
+                    open_gaps,
+                    {entry.query_text for entry in blackboard.query_history},
+                    self._latest_semantic_expansion,
+                )
+                blackboard.action_history.append(
+                    ActionDecision(
+                        action_type="REFLECT_SEARCH_STRATEGY",
+                        priority="high",
+                        rationale=(
+                            f"Coverage gate: target topics below quota "
+                            f"{self.coverage_quota}: {open_gaps}."
+                        ),
+                        expected_gain="Fill under-covered target topics.",
+                        required_context=open_gaps,
+                    )
+                )
+        if next_query is None:
             blackboard.action_history.append(
                 ActionDecision(
                     action_type="STOP",
@@ -296,7 +342,7 @@ class SdkIntelRunController:
             return False, current_query
 
         _ = yield_assessment  # recorded implicitly through query_history metrics
-        return True, reflection.rewritten_queries[0].query_text
+        return True, next_query
 
     def _run_rules_round(
         self,
@@ -547,16 +593,48 @@ class SdkIntelRunController:
                 stop_rationale=parsed.stop_reason or parsed.rationale,
             )
 
-        # Safety valves (roadmap 6.4): max_rounds hard cap, min_rounds floor.
+        # Safety valves, in priority order:
+        #   max_rounds (hard cap) > stall (search exhausted) > coverage gate
+        #   (topics below quota) > min_rounds floor > agent/rule verdict.
+        # Stall overrides the coverage gate so an unreachable sparse topic does
+        # not burn the whole budget; the remaining gaps are reported honestly.
+        open_gaps = rules.quota_open_gaps(
+            blackboard.raw_items, self.target_topics, self.coverage_quota
+        )
+        stalled = rules.is_search_stalled(
+            blackboard, self.stall_patience, self.min_new_relevant_per_call
+        )
         if round_index + 1 >= self.max_rounds:
             assessment.should_continue = False
             assessment.stop_rationale = assessment.stop_rationale or "max_rounds reached"
+        elif stalled:
+            assessment.should_continue = False
+            reason = (
+                f"search exhausted: < {self.min_new_relevant_per_call} new relevant "
+                f"items/call for {self.stall_patience} consecutive rounds"
+            )
+            if open_gaps:
+                reason += f"; coverage incomplete, unreached topics: {open_gaps}"
+            assessment.stop_rationale = reason
+            assessment.missing_dimensions = open_gaps
+        elif open_gaps and self._api_budget_remains(blackboard):
+            # Coverage completeness is the hard constraint: never stop while a
+            # target topic is under quota, regardless of the agent/rule verdict.
+            assessment.should_continue = True
+            assessment.stop_rationale = None
+            assessment.missing_dimensions = open_gaps
         elif round_index + 1 < self.min_rounds:
             assessment.should_continue = True
-        if assessment.should_continue and not reflection.rewritten_queries:
+        # Only stop for a missing next query when coverage is already satisfied;
+        # otherwise _run_round synthesizes a gap-targeted query.
+        if assessment.should_continue and not reflection.rewritten_queries and not open_gaps:
             assessment.should_continue = False
             assessment.stop_rationale = "no next query available"
         return assessment
+
+    def _api_budget_remains(self, blackboard: IntelRunBlackboard) -> bool:
+        max_calls = blackboard.budget.max_api_calls
+        return max_calls is None or blackboard.metrics.api_calls_used < max_calls
 
     # ------------------------------------------------------------------ execution
 
@@ -626,16 +704,32 @@ class SdkIntelRunController:
             round_index=round_index,
         )
 
+    def _latest_info_gain(self, blackboard: IntelRunBlackboard) -> dict[str, Any] | None:
+        if not blackboard.query_history:
+            return None
+        item_index = {item.item_id: item for item in blackboard.raw_items}
+        return rules.round_information_gain(blackboard.query_history[-1], item_index)
+
     def _marginal_yield_features(self, blackboard: IntelRunBlackboard) -> dict[str, Any]:
         history = blackboard.query_history
         recent = history[-2:]
         new_counts = [len(entry.metadata.get("new_item_ids") or []) for entry in recent]
         calls = blackboard.metrics.api_calls_used
+        item_index = {item.item_id: item for item in blackboard.raw_items}
+        recent_gain = [rules.round_information_gain(entry, item_index) for entry in recent]
         return {
             "rounds_completed": len(history),
             "recent_novelty": [round(entry.novelty_score, 3) for entry in recent],
             "recent_duplicate_ratio": [round(entry.duplicate_ratio, 3) for entry in recent],
             "recent_new_items": new_counts,
+            # New-information signal: new AND relevant items per API call, plus the
+            # share of newly fetched items that were off-topic noise.
+            "recent_new_relevant_per_call": [g["new_relevant_per_call"] for g in recent_gain],
+            "recent_irrelevant_share": [g["irrelevant_share"] for g in recent_gain],
+            "stall_threshold_new_relevant_per_call": self.min_new_relevant_per_call,
+            "stalled": rules.is_search_stalled(
+                blackboard, self.stall_patience, self.min_new_relevant_per_call
+            ),
             "new_items_per_call": round(len(blackboard.raw_items) / calls, 3) if calls else 0.0,
             "remaining_api_calls": (
                 (blackboard.budget.max_api_calls - calls)

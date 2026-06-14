@@ -80,6 +80,89 @@ class RulesModuleTests(unittest.TestCase):
         # all first-round specs are excluded; capped retry slice returned instead
         self.assertTrue(len(second) <= 4)
 
+    def test_quota_coverage_counts_relevant_items_per_topic(self) -> None:
+        items = [
+            _item("a", "prompt injection one", ["prompt injection"]),
+            _item("b", "prompt injection two", ["prompt injection"]),
+            _item("c", "jailbreak bypass", ["jailbreak"]),
+        ]
+        counts = rules.relevant_topic_counts(
+            items, ["prompt injection", "jailbreak", "rag poisoning"]
+        )
+        self.assertEqual(counts["prompt injection"], 2)
+        self.assertEqual(counts["jailbreak"], 1)
+        self.assertEqual(counts["rag poisoning"], 0)
+        gaps = rules.quota_open_gaps(items, ["prompt injection", "jailbreak"], quota=2)
+        self.assertEqual(gaps, ["jailbreak"])
+        self.assertAlmostEqual(
+            rules.coverage_completeness(items, ["prompt injection", "jailbreak"], quota=2),
+            0.5,
+        )
+
+    def test_quota_coverage_prefers_relevance_topic_label(self) -> None:
+        item = _item("a", "ambiguous title", ["jailbreak"])
+        item.metadata["relevance"] = {
+            "label": "relevant",
+            "topic": "prompt injection",
+            "score": 0.9,
+            "method": "embedding",
+        }
+        counts = rules.relevant_topic_counts([item], ["prompt injection", "jailbreak"])
+        self.assertEqual(counts["prompt injection"], 1)
+        self.assertEqual(counts["jailbreak"], 0)
+
+    def test_quota_coverage_excludes_irrelevant_items(self) -> None:
+        item = _item("a", "prompt injection weak", ["prompt injection"])
+        item.relevance_score = 0.1
+        item.metadata["relevance"] = {"label": "irrelevant", "score": 0.1, "method": "rule"}
+        counts = rules.relevant_topic_counts([item], ["prompt injection"])
+        self.assertEqual(counts["prompt injection"], 0)
+
+    def _entry(self, rnd: int, new_ids: list[str], calls: int = 1, **kwargs):
+        return QueryHistoryEntry(
+            query_text=f"q{rnd}",
+            source_names=["arxiv_api"],
+            result_count=kwargs.get("result_count", 5),
+            duplicate_ratio=kwargs.get("duplicate_ratio", 0.0),
+            round_index=rnd,
+            metadata={
+                "new_item_ids": new_ids,
+                "source_query_plans": [{"source_name": "arxiv_api"}] * calls,
+            },
+        )
+
+    def test_round_information_gain_counts_new_relevant_only(self) -> None:
+        items = [
+            _item("arxiv:1", "prompt injection a", ["prompt injection"]),
+            _item("arxiv:2", "prompt injection b", ["prompt injection"]),
+            _item("arxiv:3", "noise item", ["prompt injection"]),
+        ]
+        items[2].relevance_score = 0.1  # irrelevant
+        index = {item.item_id: item for item in items}
+        entry = self._entry(0, ["arxiv:1", "arxiv:2", "arxiv:3"], calls=2, result_count=4)
+        gain = rules.round_information_gain(entry, index)
+        self.assertEqual(gain["new_relevant"], 2)
+        self.assertEqual(gain["new_total"], 3)
+        self.assertEqual(gain["calls"], 2)
+        self.assertAlmostEqual(gain["new_relevant_per_call"], 1.0)
+        self.assertAlmostEqual(gain["irrelevant_share"], round(1 - 2 / 3, 3))
+
+    def test_is_search_stalled_detects_low_yield_streak(self) -> None:
+        blackboard = IntelRunBlackboard(run_id="t", run_goal="g")
+        blackboard.raw_items = [_item("arxiv:1", "prompt injection", ["prompt injection"])]
+        # round 0 productive (1 new relevant / 1 call), rounds 1-2 add nothing new
+        blackboard.query_history = [
+            self._entry(0, ["arxiv:1"]),
+            self._entry(1, []),
+            self._entry(2, []),
+        ]
+        self.assertTrue(rules.is_search_stalled(blackboard, patience=2, min_yield=0.5))
+        # patience 3 includes the productive round 0, so not stalled
+        self.assertFalse(rules.is_search_stalled(blackboard, patience=3, min_yield=0.5))
+        # fewer rounds than patience -> not stalled
+        blackboard.query_history = [self._entry(0, ["arxiv:1"])]
+        self.assertFalse(rules.is_search_stalled(blackboard, patience=2, min_yield=0.5))
+
     def test_merge_batch_records_target_topics_for_bandit(self) -> None:
         blackboard = IntelRunBlackboard(run_id="t", run_goal="g")
         plan = SearchQueryPlan(

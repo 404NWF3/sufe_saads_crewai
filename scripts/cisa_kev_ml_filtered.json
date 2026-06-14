@@ -1,0 +1,2760 @@
+[
+  {
+    "cve_id": "CVE-2025-26399",
+    "vendor_project": "SolarWinds",
+    "product": "Web Help Desk",
+    "vulnerability_name": "SolarWinds Web Help Desk Deserialization of Untrusted Data Vulnerability",
+    "date_added": "2026-03-09",
+    "short_description": "SolarWinds Web Help Desk contain a deserialization of untrusted data vulnerability in AjaxProxy that could allow an attacker to run commands on the host machine.",
+    "matches": {
+      "ML Frameworks": [
+        "jax"
+      ],
+      "Deserialization": [
+        "deserialization",
+        "serialization",
+        "cwe-502"
+      ]
+    },
+    "num_topics": 2,
+    "relevance": 1.0,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2020-7961",
+    "vendor_project": "Liferay",
+    "product": "Liferay Portal",
+    "vulnerability_name": "Liferay Portal Deserialization of Untrusted Data Vulnerability",
+    "date_added": "2021-11-03",
+    "short_description": "Liferay Portal contains a deserialization of untrusted data vulnerability that allows remote attackers to execute code via JSON web services.",
+    "matches": {
+      "LLM Tools": [
+        "ray"
+      ],
+      "Deserialization": [
+        "deserialization",
+        "serialization",
+        "cwe-502"
+      ]
+    },
+    "num_topics": 2,
+    "relevance": 1.0,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2019-18935",
+    "vendor_project": "Progress",
+    "product": "Telerik UI for ASP.NET AJAX",
+    "vulnerability_name": "Progress Telerik UI for ASP.NET AJAX Deserialization of Untrusted Data Vulnerability",
+    "date_added": "2021-11-03",
+    "short_description": "Progress Telerik UI for ASP.NET AJAX contains a deserialization of untrusted data vulnerability through RadAsyncUpload which leads to code execution on the server in the context of the w3wp.exe proces",
+    "matches": {
+      "ML Frameworks": [
+        "jax"
+      ],
+      "Deserialization": [
+        "deserialization",
+        "serialization",
+        "cwe-502"
+      ]
+    },
+    "num_topics": 2,
+    "relevance": 1.0,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Known"
+  },
+  {
+    "cve_id": "CVE-2022-0543",
+    "vendor_project": "Redis",
+    "product": "Debian-specific Redis Servers",
+    "vulnerability_name": "Debian-specific Redis Server Lua Sandbox Escape Vulnerability",
+    "date_added": "2022-03-28",
+    "short_description": "Redis is prone to a (Debian-specific) Lua sandbox escape, which could result in remote code execution.",
+    "matches": {
+      "Vector Databases": [
+        "redis"
+      ],
+      "Infrastructure": [
+        "sandbox escape"
+      ]
+    },
+    "num_topics": 2,
+    "relevance": 0.9,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-862"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2021-28664",
+    "vendor_project": "Arm",
+    "product": "Mali Graphics Processing Unit (GPU)",
+    "vulnerability_name": "Arm Mali Graphics Processing Unit (GPU) Unspecified Vulnerability",
+    "date_added": "2021-11-03",
+    "short_description": "Arm Mali Graphics Processing Unit (GPU) kernel driver contains an unspecified vulnerability that may allow a non-privileged user to gain write access to read-only memory, gain root privilege, corrupt ",
+    "matches": {
+      "LLM Tools": [
+        "dify"
+      ],
+      "Infrastructure": [
+        "gpu"
+      ]
+    },
+    "num_topics": 2,
+    "relevance": 0.9,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-787"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2026-42208",
+    "vendor_project": "BerriAI",
+    "product": "LiteLLM",
+    "vulnerability_name": "BerriAI LiteLLM SQL Injection Vulnerability",
+    "date_added": "2026-05-08",
+    "short_description": "BerriAI LiteLLM contains a SQL injection vulnerability that allows an attacker to read data from the proxy's database and potentially modify it, leading to unauthorized access to the proxy and the cre",
+    "matches": {
+      "LLM Tools": [
+        "dify"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.8,
+    "is_recent_90d": true,
+    "cwes": [
+      "CWE-89"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2026-33017",
+    "vendor_project": "Langflow",
+    "product": "Langflow",
+    "vulnerability_name": "Langflow Code Injection Vulnerability",
+    "date_added": "2026-03-25",
+    "short_description": "Langflow contains a code injection vulnerability that could allow building public flows without requiring authentication.",
+    "matches": {
+      "LLM Tools": [
+        "langflow"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.8,
+    "is_recent_90d": true,
+    "cwes": [
+      "CWE-94",
+      "CWE-95",
+      "CWE-306"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2026-45247",
+    "vendor_project": "Mirasvit",
+    "product": "Mirasvit Full Page Cache Warmer",
+    "vulnerability_name": "Mirasvit Full Page Cache Warmer Deserialization of Untrusted Data Vulnerability",
+    "date_added": "2026-06-03",
+    "short_description": "Mirasvit Full Page Cache Warmer contains a deserialization of untrusted data vulnerability that could allow unauthenticated attackers to achieve remote code execution by supplying a crafted serialized",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization",
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.75,
+    "is_recent_90d": true,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2025-34291",
+    "vendor_project": "Langflow",
+    "product": "Langflow",
+    "vulnerability_name": "Langflow Origin Validation Error Vulnerability",
+    "date_added": "2026-05-21",
+    "short_description": "Langflow contains an origin validation error vulnerability in which an overly permissive CORS configuration combined with a refresh token cookie configured as SameSite=None allows a malicious webpage ",
+    "matches": {
+      "LLM Tools": [
+        "langflow"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.75,
+    "is_recent_90d": true,
+    "cwes": [
+      "CWE-346"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2026-34926",
+    "vendor_project": "Trend Micro",
+    "product": "Apex One",
+    "vulnerability_name": "Trend Micro Apex One (On-Premise) Directory Traversal Vulnerability",
+    "date_added": "2026-05-21",
+    "short_description": "Trend Micro Apex One (on-premise) contains a directory traversal vulnerability that could allow a pre-authenticated local attacker to modify a key table on the server to inject malicious code to deplo",
+    "matches": {
+      "LLM Tools": [
+        "dify"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.75,
+    "is_recent_90d": true,
+    "cwes": [
+      "CWE-23"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2023-21529",
+    "vendor_project": "Microsoft",
+    "product": "Exchange Server",
+    "vulnerability_name": "Microsoft Exchange Server Deserialization of Untrusted Data Vulnerability",
+    "date_added": "2026-04-13",
+    "short_description": "Microsoft Exchange Server contains a deserialization of untrusted data that allows an authenticated attacker to achieve remote code execution.",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization",
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.75,
+    "is_recent_90d": true,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Known"
+  },
+  {
+    "cve_id": "CVE-2026-20131",
+    "vendor_project": "Cisco",
+    "product": "Secure Firewall Management Center (FMC)",
+    "vulnerability_name": "Cisco Secure Firewall Management Center (FMC) Software and Cisco Security Cloud Control (SCC) Firewall Management Deserialization of Untrusted Data Vulnerability",
+    "date_added": "2026-03-19",
+    "short_description": "Cisco Secure Firewall Management Center (FMC) Software and Cisco Security Cloud Control (SCC) Firewall Management contain a deserialization of untrusted data vulnerability in the web-based management ",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization",
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.75,
+    "is_recent_90d": true,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Known"
+  },
+  {
+    "cve_id": "CVE-2026-20963",
+    "vendor_project": "Microsoft",
+    "product": "SharePoint",
+    "vulnerability_name": "Microsoft SharePoint Deserialization of Untrusted Data Vulnerability",
+    "date_added": "2026-03-18",
+    "short_description": "Microsoft SharePoint contains a deserialization of untrusted data vulnerability that allows an unauthorized attacker to execute code over a network.",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization",
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.75,
+    "is_recent_90d": true,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2025-66644",
+    "vendor_project": "Array Networks ",
+    "product": "ArrayOS AG",
+    "vulnerability_name": "Array Networks ArrayOS AG OS Command Injection Vulnerability",
+    "date_added": "2025-12-08",
+    "short_description": "Array Networks ArrayOS AG contains an OS command injection vulnerability that could allow an attacker to execute arbitrary commands.",
+    "matches": {
+      "LLM Tools": [
+        "ray"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.75,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-78"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2024-12987",
+    "vendor_project": "DrayTek",
+    "product": "Vigor Routers",
+    "vulnerability_name": "DrayTek Vigor Routers OS Command Injection Vulnerability",
+    "date_added": "2025-05-15",
+    "short_description": "DrayTek Vigor2960, Vigor300B, and Vigor3900 routers contain an OS command injection vulnerability due to an unknown function of the file /cgi-bin/mainfunction.cgi/apmcfgupload of the component web man",
+    "matches": {
+      "LLM Tools": [
+        "ray"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.75,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-78"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2020-15415",
+    "vendor_project": "DrayTek",
+    "product": "Multiple Vigor Routers",
+    "vulnerability_name": "DrayTek Multiple Vigor Routers OS Command Injection Vulnerability",
+    "date_added": "2024-09-30",
+    "short_description": "DrayTek Vigor3900, Vigor2960, and Vigor300B devices contain an OS command injection vulnerability in cgi-bin/mainfunction.cgi/cvmcfgupload that allows for remote code execution via shell metacharacter",
+    "matches": {
+      "LLM Tools": [
+        "ray"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.75,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-78"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2021-20124",
+    "vendor_project": "DrayTek",
+    "product": "VigorConnect",
+    "vulnerability_name": "Draytek VigorConnect Path Traversal Vulnerability ",
+    "date_added": "2024-09-03",
+    "short_description": "Draytek VigorConnect contains a path traversal vulnerability in the file download functionality of the WebServlet endpoint. An unauthenticated attacker could leverage this vulnerability to download ar",
+    "matches": {
+      "LLM Tools": [
+        "ray"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.75,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-22"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2021-20123",
+    "vendor_project": "DrayTek",
+    "product": "VigorConnect",
+    "vulnerability_name": "Draytek VigorConnect Path Traversal Vulnerability ",
+    "date_added": "2024-09-03",
+    "short_description": "Draytek VigorConnect contains a path traversal vulnerability in the DownloadFileServlet endpoint. An unauthenticated attacker could leverage this vulnerability to download arbitrary files from the und",
+    "matches": {
+      "LLM Tools": [
+        "ray"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.75,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-22"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2018-14667",
+    "vendor_project": "Red Hat",
+    "product": "JBoss RichFaces Framework",
+    "vulnerability_name": "Red Hat JBoss RichFaces Framework Expression Language Injection Vulnerability",
+    "date_added": "2023-09-28",
+    "short_description": "Red Hat JBoss RichFaces Framework contains an expression language injection vulnerability via the UserResource resource. A remote, unauthenticated attacker could exploit this vulnerability to execute ",
+    "matches": {
+      "ML Frameworks": [
+        "jax"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.75,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-94"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2023-35078",
+    "vendor_project": "Ivanti",
+    "product": "Endpoint Manager Mobile (EPMM)",
+    "vulnerability_name": "Ivanti Endpoint Manager Mobile Authentication Bypass Vulnerability",
+    "date_added": "2023-07-25",
+    "short_description": "Ivanti Endpoint Manager Mobile (EPMM, previously branded MobileIron Core) contains an authentication bypass vulnerability that allows unauthenticated access to specific API paths. An attacker with acc",
+    "matches": {
+      "LLM Tools": [
+        "dify"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.75,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-287"
+    ],
+    "ransomware": "Known"
+  },
+  {
+    "cve_id": "CVE-2017-11357",
+    "vendor_project": "Telerik",
+    "product": "User Interface (UI) for ASP.NET AJAX",
+    "vulnerability_name": "Telerik UI for ASP.NET AJAX Insecure Direct Object Reference Vulnerability",
+    "date_added": "2023-01-26",
+    "short_description": "Telerik UI for ASP.NET AJAX contains an insecure direct object reference vulnerability in RadAsyncUpload that can result in file uploads in a limited location and/or remote code execution.",
+    "matches": {
+      "ML Frameworks": [
+        "jax"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.75,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-20"
+    ],
+    "ransomware": "Known"
+  },
+  {
+    "cve_id": "CVE-2019-7195",
+    "vendor_project": "QNAP",
+    "product": "Photo Station",
+    "vulnerability_name": "QNAP Photo Station Path Traversal Vulnerability",
+    "date_added": "2022-06-08",
+    "short_description": "QNAP devices running Photo Station contain an external control of file name or path vulnerability allowing remote attackers to access or modify system files.",
+    "matches": {
+      "LLM Tools": [
+        "dify"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.75,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-22"
+    ],
+    "ransomware": "Known"
+  },
+  {
+    "cve_id": "CVE-2019-7194",
+    "vendor_project": "QNAP",
+    "product": "Photo Station",
+    "vulnerability_name": "QNAP Photo Station Path Traversal Vulnerability",
+    "date_added": "2022-06-08",
+    "short_description": "QNAP devices running Photo Station contain an external control of file name or path vulnerability allowing remote attackers to access or modify system files.",
+    "matches": {
+      "LLM Tools": [
+        "dify"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.75,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-22"
+    ],
+    "ransomware": "Known"
+  },
+  {
+    "cve_id": "CVE-2022-30525",
+    "vendor_project": "Zyxel",
+    "product": "Multiple Firewalls",
+    "vulnerability_name": "Zyxel Multiple Firewalls OS Command Injection Vulnerability",
+    "date_added": "2022-05-16",
+    "short_description": "A command injection vulnerability in the CGI program of some Zyxel firewall versions could allow an attacker to modify specific files and then execute some OS commands on a vulnerable device.",
+    "matches": {
+      "LLM Tools": [
+        "dify"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.75,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-78"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2020-8515",
+    "vendor_project": "DrayTek",
+    "product": "Multiple Vigor Routers",
+    "vulnerability_name": "Multiple DrayTek Vigor Routers Web Management Page Vulnerability",
+    "date_added": "2021-11-03",
+    "short_description": "DrayTek Vigor3900, Vigor2960, and Vigor300B routers contain an unspecified vulnerability that allows for remote code execution.",
+    "matches": {
+      "LLM Tools": [
+        "ray"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.75,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-78"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2019-15949",
+    "vendor_project": "Nagios",
+    "product": "Nagios XI",
+    "vulnerability_name": "Nagios XI Remote Code Execution Vulnerability",
+    "date_added": "2021-11-03",
+    "short_description": "Nagios XI contains a remote code execution vulnerability in which a user can modify the check_plugin executable and insert malicious commands to execute as root.",
+    "matches": {
+      "LLM Tools": [
+        "dify"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.75,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-78"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2020-10221",
+    "vendor_project": "rConfig",
+    "product": "rConfig",
+    "vulnerability_name": "rConfig OS Command Injection Vulnerability",
+    "date_added": "2021-11-03",
+    "short_description": "rConfig lib/ajaxHandlers/ajaxAddTemplate.php contains an OS command injection vulnerability that allows remote attackers to execute OS commands via shell metacharacters in the fileName POST parameter.",
+    "matches": {
+      "ML Frameworks": [
+        "jax"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.75,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-78"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2019-9082",
+    "vendor_project": "ThinkPHP",
+    "product": "ThinkPHP",
+    "vulnerability_name": "ThinkPHP Remote Code Execution Vulnerability",
+    "date_added": "2021-11-03",
+    "short_description": "ThinkPHP contains an unspecified vulnerability that allows for remote code execution via public//?s=index/\\think\\app/invokefunction&function=call_user_func_array&vars[0]=system&vars[1][]= followed by ",
+    "matches": {
+      "LLM Tools": [
+        "ray"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.75,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-306",
+      "CWE-94"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2019-16759",
+    "vendor_project": "vBulletin",
+    "product": "vBulletin",
+    "vulnerability_name": "vBulletin PHP Module Remote Code Execution Vulnerability",
+    "date_added": "2021-11-03",
+    "short_description": "The PHP module within vBulletin contains an unspecified vulnerability that allows for remote code execution via the widgetConfig[code] parameter in an ajax/render/widget_php routestring request.",
+    "matches": {
+      "ML Frameworks": [
+        "jax"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.75,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-94"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2025-49113",
+    "vendor_project": "Roundcube",
+    "product": "Webmail",
+    "vulnerability_name": "RoundCube Webmail Deserialization of Untrusted Data Vulnerability",
+    "date_added": "2026-02-20",
+    "short_description": "RoundCube Webmail contains a deserialization of untrusted data vulnerability that allows remote code execution by authenticated users because the _from parameter in a URL is not validated in program/a",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization",
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2025-40551",
+    "vendor_project": "SolarWinds",
+    "product": "Web Help Desk",
+    "vulnerability_name": "SolarWinds Web Help Desk Deserialization of Untrusted Data Vulnerability",
+    "date_added": "2026-02-03",
+    "short_description": "SolarWinds Web Help Desk contains a deserialization of untrusted data vulnerability that could lead to remote code execution, which would allow an attacker to run commands on the host machine. This co",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization",
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2025-59287",
+    "vendor_project": "Microsoft",
+    "product": "Windows",
+    "vulnerability_name": "Microsoft Windows Server Update Service (WSUS) Deserialization of Untrusted Data Vulnerability",
+    "date_added": "2025-10-24",
+    "short_description": "Microsoft Windows Server Update Service (WSUS) contains a deserialization of untrusted data vulnerability that allows for remote code execution.",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization",
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2025-10035",
+    "vendor_project": "Fortra",
+    "product": "GoAnywhere MFT",
+    "vulnerability_name": "Fortra GoAnywhere MFT Deserialization of Untrusted Data Vulnerability",
+    "date_added": "2025-09-29",
+    "short_description": "Fortra GoAnywhere MFT contains a deserialization of untrusted data vulnerability allows an actor with a validly forged license response signature to deserialize an arbitrary actor-controlled object, p",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization",
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502",
+      "CWE-77"
+    ],
+    "ransomware": "Known"
+  },
+  {
+    "cve_id": "CVE-2025-5086",
+    "vendor_project": "Dassault Systèmes",
+    "product": "DELMIA Apriso",
+    "vulnerability_name": "Dassault Systèmes DELMIA Apriso Deserialization of Untrusted Data Vulnerability",
+    "date_added": "2025-09-11",
+    "short_description": "Dassault Systèmes DELMIA Apriso contains a deserialization of untrusted data vulnerability that could lead to a remote code execution.",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization",
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2025-53690",
+    "vendor_project": "Sitecore",
+    "product": "Multiple Products",
+    "vulnerability_name": "Sitecore Multiple Products Deserialization of Untrusted Data Vulnerability",
+    "date_added": "2025-09-04",
+    "short_description": "Sitecore Experience Manager (XM), Experience Platform (XP), Experience Commerce (XC), and Managed Cloud contain a deserialization of untrusted data vulnerability involving the use of default machine k",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization",
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2024-8069",
+    "vendor_project": "Citrix",
+    "product": "Session Recording",
+    "vulnerability_name": "Citrix Session Recording Deserialization of Untrusted Data Vulnerability",
+    "date_added": "2025-08-25",
+    "short_description": "Citrix Session Recording contains a deserialization of untrusted data vulnerability that allows limited remote code execution with privilege of a NetworkService Account access. Attacker must be an aut",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization",
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2025-53770",
+    "vendor_project": "Microsoft",
+    "product": "SharePoint",
+    "vulnerability_name": "Microsoft SharePoint Deserialization of Untrusted Data Vulnerability",
+    "date_added": "2025-07-20",
+    "short_description": "Microsoft SharePoint Server on-premises contains a deserialization of untrusted data vulnerability that could allow an unauthorized attacker to execute code over a network. This vulnerability could be",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization",
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Known"
+  },
+  {
+    "cve_id": "CVE-2025-24016",
+    "vendor_project": "Wazuh",
+    "product": "Wazuh Server",
+    "vulnerability_name": "Wazuh Server Deserialization of Untrusted Data Vulnerability",
+    "date_added": "2025-06-10",
+    "short_description": "Wazuh contains a deserialization of untrusted data vulnerability that allows for remote code execution on Wazuh servers.",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization",
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2025-42999",
+    "vendor_project": "SAP",
+    "product": "NetWeaver",
+    "vulnerability_name": "SAP NetWeaver Deserialization Vulnerability",
+    "date_added": "2025-05-15",
+    "short_description": "SAP NetWeaver Visual Composer Metadata Uploader contains a deserialization vulnerability that allows a privileged attacker to compromise the confidentiality, integrity, and availability of the host sy",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization",
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2025-3248",
+    "vendor_project": "Langflow",
+    "product": "Langflow",
+    "vulnerability_name": "Langflow Missing Authentication Vulnerability",
+    "date_added": "2025-05-05",
+    "short_description": "Langflow contains a missing authentication vulnerability in the /api/v1/validate/code endpoint that allows a remote, unauthenticated attacker to execute arbitrary code via crafted HTTP requests.",
+    "matches": {
+      "LLM Tools": [
+        "langflow"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-306"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2025-24813",
+    "vendor_project": "Apache",
+    "product": "Tomcat",
+    "vulnerability_name": "Apache Tomcat Path Equivalence Vulnerability",
+    "date_added": "2025-04-01",
+    "short_description": "Apache Tomcat contains a path equivalence vulnerability that allows a remote attacker to execute code, disclose information, or inject malicious content via a partial PUT request.",
+    "matches": {
+      "Deserialization": [
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-44",
+      "CWE-502"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2019-9875",
+    "vendor_project": "Sitecore",
+    "product": "CMS and Experience Platform (XP)",
+    "vulnerability_name": "Sitecore CMS and Experience Platform (XP) Deserialization Vulnerability",
+    "date_added": "2025-03-26",
+    "short_description": "Sitecore CMS and Experience Platform (XP) contain a deserialization vulnerability in the Sitecore.Security.AntiCSRF module that allows an authenticated attacker to execute arbitrary code by sending a ",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization",
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2019-9874",
+    "vendor_project": "Sitecore",
+    "product": "CMS and Experience Platform (XP)",
+    "vulnerability_name": "Sitecore CMS and Experience Platform (XP) Deserialization Vulnerability",
+    "date_added": "2025-03-26",
+    "short_description": "Sitecore CMS and Experience Platform (XP) contain a deserialization vulnerability in the Sitecore.Security.AntiCSRF module that allows an unauthenticated attacker to execute arbitrary code by sending ",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization",
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2024-20953",
+    "vendor_project": "Oracle",
+    "product": "Agile Product Lifecycle Management (PLM)",
+    "vulnerability_name": "Oracle Agile Product Lifecycle Management (PLM) Deserialization Vulnerability",
+    "date_added": "2025-02-24",
+    "short_description": "Oracle Agile Product Lifecycle Management (PLM) contains a deserialization vulnerability that allows a low-privileged attacker with network access via HTTP to compromise the system.",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization",
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2017-3066",
+    "vendor_project": "Adobe",
+    "product": "ColdFusion",
+    "vulnerability_name": "Adobe ColdFusion Deserialization Vulnerability",
+    "date_added": "2025-02-24",
+    "short_description": "Adobe ColdFusion contains a deserialization vulnerability in the Apache BlazeDS library that allows for arbitrary code execution.",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization",
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2025-0994",
+    "vendor_project": "Trimble",
+    "product": "Cityworks",
+    "vulnerability_name": "Trimble Cityworks Deserialization Vulnerability",
+    "date_added": "2025-02-07",
+    "short_description": "Trimble Cityworks contains a deserialization vulnerability. This could allow an authenticated user to perform a remote code execution attack against a customer's Microsoft Internet Information Service",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization",
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2025-23006",
+    "vendor_project": "SonicWall",
+    "product": "SMA1000 Appliances",
+    "vulnerability_name": "SonicWall SMA1000 Appliances Deserialization Vulnerability",
+    "date_added": "2025-01-24",
+    "short_description": "SonicWall SMA1000 Appliance Management Console (AMC) and Central Management Console (CMC) contain a deserialization of untrusted data vulnerability, which can enable a remote, unauthenticated attacker",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization",
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Known"
+  },
+  {
+    "cve_id": "CVE-2024-20767",
+    "vendor_project": "Adobe",
+    "product": "ColdFusion",
+    "vulnerability_name": "Adobe ColdFusion Improper Access Control Vulnerability",
+    "date_added": "2024-12-16",
+    "short_description": "Adobe ColdFusion contains an improper access control vulnerability that could allow an attacker to access or modify restricted files via an internet-exposed admin panel.",
+    "matches": {
+      "LLM Tools": [
+        "dify"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-284"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2023-28461",
+    "vendor_project": "Array Networks ",
+    "product": "AG/vxAG ArrayOS",
+    "vulnerability_name": "Array Networks AG and vxAG ArrayOS Missing Authentication for Critical Function Vulnerability",
+    "date_added": "2024-11-25",
+    "short_description": "Array Networks AG and vxAG ArrayOS contain a missing authentication for critical function vulnerability that allows an attacker to read local files and execute code on the SSL VPN gateway.",
+    "matches": {
+      "LLM Tools": [
+        "ray"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-306"
+    ],
+    "ransomware": "Known"
+  },
+  {
+    "cve_id": "CVE-2024-38094",
+    "vendor_project": "Microsoft",
+    "product": "SharePoint",
+    "vulnerability_name": "Microsoft SharePoint Deserialization Vulnerability",
+    "date_added": "2024-10-22",
+    "short_description": "Microsoft SharePoint contains a deserialization vulnerability that allows for remote code execution.",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization",
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Known"
+  },
+  {
+    "cve_id": "CVE-2024-40711",
+    "vendor_project": "Veeam",
+    "product": "Backup & Replication",
+    "vulnerability_name": "Veeam Backup and Replication Deserialization Vulnerability",
+    "date_added": "2024-10-17",
+    "short_description": "Veeam Backup and Replication contains a deserialization vulnerability allowing an unauthenticated user to perform remote code execution.",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization",
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Known"
+  },
+  {
+    "cve_id": "CVE-2024-28987",
+    "vendor_project": "SolarWinds",
+    "product": "Web Help Desk",
+    "vulnerability_name": "SolarWinds Web Help Desk Hardcoded Credential Vulnerability",
+    "date_added": "2024-10-15",
+    "short_description": "SolarWinds Web Help Desk contains a hardcoded credential vulnerability that could allow a remote, unauthenticated user to access internal functionality and modify data.",
+    "matches": {
+      "LLM Tools": [
+        "dify"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-798"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2019-0344",
+    "vendor_project": "SAP",
+    "product": "Commerce Cloud",
+    "vulnerability_name": "SAP Commerce Cloud Deserialization of Untrusted Data Vulnerability",
+    "date_added": "2024-09-30",
+    "short_description": "SAP Commerce Cloud (formerly known as Hybris) contains a deserialization of untrusted data vulnerability within the mediaconversion and virtualjdbc extension that allows for code injection.",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization",
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2022-21445",
+    "vendor_project": "Oracle",
+    "product": "ADF Faces",
+    "vulnerability_name": "Oracle ADF Faces Deserialization of Untrusted Data Vulnerability",
+    "date_added": "2024-09-18",
+    "short_description": "Oracle ADF Faces library, included with Oracle JDeveloper Distribution, contains a deserialization of untrusted data vulnerability leading to unauthenticated remote code execution.",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization",
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2020-0618",
+    "vendor_project": "Microsoft",
+    "product": "SQL Server",
+    "vulnerability_name": "Microsoft SQL Server Reporting Services Remote Code Execution Vulnerability",
+    "date_added": "2024-09-18",
+    "short_description": "Microsoft SQL Server Reporting Services contains a deserialization vulnerability when handling page requests incorrectly. An authenticated attacker can exploit this vulnerability to execute code in th",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization",
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2024-28986",
+    "vendor_project": "SolarWinds",
+    "product": "Web Help Desk",
+    "vulnerability_name": "SolarWinds Web Help Desk Deserialization of Untrusted Data Vulnerability",
+    "date_added": "2024-08-15",
+    "short_description": "SolarWinds Web Help Desk contains a deserialization of untrusted data vulnerability that could allow for remote code execution.",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization",
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2018-0824",
+    "vendor_project": "Microsoft",
+    "product": "Windows",
+    "vulnerability_name": "Microsoft COM for Windows Deserialization of Untrusted Data Vulnerability",
+    "date_added": "2024-08-05",
+    "short_description": "Microsoft COM for Windows contains a deserialization of untrusted data vulnerability that allows for privilege escalation and remote code execution via a specially crafted file or script.",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization",
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2023-43208",
+    "vendor_project": "NextGen Healthcare",
+    "product": "Mirth Connect",
+    "vulnerability_name": "NextGen Healthcare Mirth Connect Deserialization of Untrusted Data Vulnerability",
+    "date_added": "2024-05-20",
+    "short_description": "NextGen Healthcare Mirth Connect contains a deserialization of untrusted data vulnerability that allows for unauthenticated remote code execution via a specially crafted request.",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization",
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Known"
+  },
+  {
+    "cve_id": "CVE-2022-38028",
+    "vendor_project": "Microsoft",
+    "product": "Windows",
+    "vulnerability_name": "Microsoft Windows Print Spooler Privilege Escalation Vulnerability ",
+    "date_added": "2024-04-23",
+    "short_description": "Microsoft Windows Print Spooler service contains a privilege escalation vulnerability. An attacker may modify a JavaScript constraints file and execute it with SYSTEM-level permissions.",
+    "matches": {
+      "LLM Tools": [
+        "dify"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2018-15133",
+    "vendor_project": "Laravel",
+    "product": "Laravel Framework",
+    "vulnerability_name": "Laravel Deserialization of Untrusted Data Vulnerability",
+    "date_added": "2024-01-16",
+    "short_description": "Laravel Framework contains a deserialization of untrusted data vulnerability, allowing for remote command execution. This vulnerability may only be exploited if a malicious user has accessed the appli",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization",
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2023-29300",
+    "vendor_project": "Adobe",
+    "product": "ColdFusion",
+    "vulnerability_name": "Adobe ColdFusion Deserialization of Untrusted Data Vulnerability",
+    "date_added": "2024-01-08",
+    "short_description": "Adobe ColdFusion contains a deserialization of untrusted data vulnerability that allows for code execution.",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization",
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Known"
+  },
+  {
+    "cve_id": "CVE-2023-38203",
+    "vendor_project": "Adobe",
+    "product": "ColdFusion",
+    "vulnerability_name": "Adobe ColdFusion Deserialization of Untrusted Data Vulnerability",
+    "date_added": "2024-01-08",
+    "short_description": "Adobe ColdFusion contains a deserialization of untrusted data vulnerability that allows for code execution.",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization",
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Known"
+  },
+  {
+    "cve_id": "CVE-2023-36844",
+    "vendor_project": "Juniper",
+    "product": "Junos OS",
+    "vulnerability_name": "Juniper Junos OS EX Series PHP External Variable Modification Vulnerability",
+    "date_added": "2023-11-13",
+    "short_description": "Juniper Junos OS on EX Series contains a PHP external variable modification vulnerability that allows an unauthenticated, network-based attacker to control certain, important environment variables. Us",
+    "matches": {
+      "LLM Tools": [
+        "dify"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-473"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2023-36845",
+    "vendor_project": "Juniper",
+    "product": "Junos OS",
+    "vulnerability_name": "Juniper Junos OS EX Series and SRX Series PHP External Variable Modification Vulnerability",
+    "date_added": "2023-11-13",
+    "short_description": "Juniper Junos OS on EX Series and SRX Series contains a PHP external variable modification vulnerability that allows an unauthenticated, network-based attacker to control an important environment vari",
+    "matches": {
+      "LLM Tools": [
+        "dify"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-473"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2023-46604",
+    "vendor_project": "Apache",
+    "product": "ActiveMQ",
+    "vulnerability_name": "Apache ActiveMQ Deserialization of Untrusted Data Vulnerability",
+    "date_added": "2023-11-02",
+    "short_description": "Apache ActiveMQ contains a deserialization of untrusted data vulnerability that may allow a remote attacker with network access to a broker to run shell commands by manipulating serialized class types",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization",
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Known"
+  },
+  {
+    "cve_id": "CVE-2023-40044",
+    "vendor_project": "Progress",
+    "product": "WS_FTP Server",
+    "vulnerability_name": "Progress WS_FTP Server Deserialization of Untrusted Data Vulnerability",
+    "date_added": "2023-10-05",
+    "short_description": "Progress WS_FTP Server contains a deserialization of untrusted data vulnerability in the Ad Hoc Transfer module that allows an authenticated attacker to execute remote commands on the underlying opera",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization",
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Known"
+  },
+  {
+    "cve_id": "CVE-2023-26359",
+    "vendor_project": "Adobe",
+    "product": "ColdFusion",
+    "vulnerability_name": "Adobe ColdFusion Deserialization of Untrusted Data Vulnerability",
+    "date_added": "2023-08-21",
+    "short_description": "Adobe ColdFusion contains a deserialization of untrusted data vulnerability that could result in code execution in the context of the current user.",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization",
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2023-38606",
+    "vendor_project": "Apple",
+    "product": "Multiple Products",
+    "vulnerability_name": "Apple Multiple Products Kernel Unspecified Vulnerability",
+    "date_added": "2023-07-26",
+    "short_description": "Apple iOS, iPadOS, macOS, tvOS, and watchOS contain an unspecified vulnerability allowing an app to modify a sensitive kernel state.",
+    "matches": {
+      "LLM Tools": [
+        "dify"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2022-31199",
+    "vendor_project": "Netwrix",
+    "product": "Auditor",
+    "vulnerability_name": "Netwrix Auditor Insecure Object Deserialization Vulnerability",
+    "date_added": "2023-07-11",
+    "short_description": "Netwrix Auditor User Activity Video Recording component contains an insecure objection deserialization vulnerability that allows an unauthenticated, remote attacker to execute code as the NT AUTHORITY",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization",
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502",
+      "CWE-122"
+    ],
+    "ransomware": "Known"
+  },
+  {
+    "cve_id": "CVE-2023-29492",
+    "vendor_project": "Novi Survey",
+    "product": "Novi Survey",
+    "vulnerability_name": "Novi Survey Insecure Deserialization Vulnerability",
+    "date_added": "2023-04-13",
+    "short_description": "Novi Survey contains an insecure deserialization vulnerability that allows remote attackers to execute code on the server in the context of the service account.",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-94"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2021-39144",
+    "vendor_project": "XStream",
+    "product": "XStream",
+    "vulnerability_name": "XStream Remote Code Execution Vulnerability",
+    "date_added": "2023-03-10",
+    "short_description": "XStream contains a remote code execution vulnerability that allows an attacker to manipulate the processed input stream and replace or inject objects that result in the execution of a local command on",
+    "matches": {
+      "Deserialization": [
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-94",
+      "CWE-502"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2020-5741",
+    "vendor_project": "Plex",
+    "product": "Media Server",
+    "vulnerability_name": "Plex Media Server Remote Code Execution Vulnerability",
+    "date_added": "2023-03-10",
+    "short_description": "Plex Media Server contains a remote code execution vulnerability that allows an attacker with access to the server administrator's Plex account to upload a malicious file via the Camera Upload feature",
+    "matches": {
+      "Deserialization": [
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2022-47986",
+    "vendor_project": "IBM",
+    "product": "Aspera Faspex",
+    "vulnerability_name": "IBM Aspera Faspex Code Execution Vulnerability",
+    "date_added": "2023-02-21",
+    "short_description": "IBM Aspera Faspex could allow a remote attacker to execute code on the system, caused by a YAML deserialization flaw.",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization",
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Known"
+  },
+  {
+    "cve_id": "CVE-2023-0669",
+    "vendor_project": "Fortra",
+    "product": "GoAnywhere MFT",
+    "vulnerability_name": "Fortra GoAnywhere MFT Remote Code Execution Vulnerability",
+    "date_added": "2023-02-10",
+    "short_description": "Fortra (formerly, HelpSystems) GoAnywhere MFT contains a pre-authentication remote code execution vulnerability in the License Response Servlet due to deserializing an attacker-controlled object.",
+    "matches": {
+      "Deserialization": [
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Known"
+  },
+  {
+    "cve_id": "CVE-2021-35587",
+    "vendor_project": "Oracle",
+    "product": "Fusion Middleware",
+    "vulnerability_name": "Oracle Fusion Middleware Unspecified Vulnerability",
+    "date_added": "2022-11-28",
+    "short_description": "Oracle Fusion Middleware Access Manager allows an unauthenticated attacker with network access via HTTP to takeover the Access Manager product.",
+    "matches": {
+      "Deserialization": [
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502",
+      "CWE-790"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2022-41082",
+    "vendor_project": "Microsoft",
+    "product": "Exchange Server",
+    "vulnerability_name": "Microsoft Exchange Server Remote Code Execution Vulnerability",
+    "date_added": "2022-09-30",
+    "short_description": "Microsoft Exchange Server contains an unspecified vulnerability that allows for authenticated remote code execution. Dubbed \"ProxyNotShell,\" this vulnerability is chainable with CVE-2022-41040 which a",
+    "matches": {
+      "Deserialization": [
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Known"
+  },
+  {
+    "cve_id": "CVE-2022-35405",
+    "vendor_project": "Zoho",
+    "product": "ManageEngine",
+    "vulnerability_name": "Zoho ManageEngine Multiple Products Remote Code Execution Vulnerability",
+    "date_added": "2022-09-22",
+    "short_description": "Zoho ManageEngine PAM360, Password Manager Pro, and Access Manager Plus contain an unspecified vulnerability that allows for remote code execution.",
+    "matches": {
+      "Deserialization": [
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2013-2094",
+    "vendor_project": "Linux",
+    "product": "Kernel",
+    "vulnerability_name": "Linux Kernel Privilege Escalation Vulnerability",
+    "date_added": "2022-09-15",
+    "short_description": "Linux kernel fails to check all 64 bits of attr.config passed by user space, resulting to out-of-bounds access of the perf_swevent_enabled array in sw_perf_event_destroy(). Explotation allows for priv",
+    "matches": {
+      "LLM Tools": [
+        "ray"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-189"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2022-27593",
+    "vendor_project": "QNAP",
+    "product": "Photo Station",
+    "vulnerability_name": "QNAP Photo Station Externally Controlled Reference Vulnerability",
+    "date_added": "2022-09-08",
+    "short_description": "Certain QNAP NAS running Photo Station with internet exposure contain an externally controlled reference to a resource vulnerability which can allow an attacker to modify system files. This vulnerabil",
+    "matches": {
+      "LLM Tools": [
+        "dify"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-610"
+    ],
+    "ransomware": "Known"
+  },
+  {
+    "cve_id": "CVE-2018-2628",
+    "vendor_project": "Oracle",
+    "product": "WebLogic Server",
+    "vulnerability_name": "Oracle WebLogic Server Unspecified Vulnerability",
+    "date_added": "2022-09-08",
+    "short_description": "Oracle WebLogic Server contains an unspecified vulnerability which can allow an unauthenticated attacker with T3 network access to compromise the server.",
+    "matches": {
+      "Deserialization": [
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2021-31010",
+    "vendor_project": "Apple",
+    "product": "iOS, macOS, watchOS",
+    "vulnerability_name": "Apple iOS, macOS, watchOS Sandbox Bypass Vulnerability",
+    "date_added": "2022-08-25",
+    "short_description": "In affected versions of Apple iOS, macOS, and watchOS, a sandboxed process may be able to circumvent sandbox restrictions.",
+    "matches": {
+      "Deserialization": [
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-20",
+      "CWE-502"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2019-15271",
+    "vendor_project": "Cisco",
+    "product": "RV Series Routers",
+    "vulnerability_name": "Cisco RV Series Routers Deserialization of Untrusted Data Vulnerability",
+    "date_added": "2022-06-08",
+    "short_description": "A deserialization of untrusted data vulnerability in the web-based management interface of certain Cisco Small Business RV Series Routers could allow an attacker to execute code with root privileges.",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization",
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2009-3953",
+    "vendor_project": "Adobe",
+    "product": "Acrobat and Reader",
+    "vulnerability_name": "Adobe Acrobat and Reader Universal 3D Remote Code Execution Vulnerability",
+    "date_added": "2022-06-08",
+    "short_description": "Adobe Acrobat and Reader contains an array boundary issue in Universal 3D (U3D) support that could lead to remote code execution.",
+    "matches": {
+      "LLM Tools": [
+        "ray"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-119"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2013-3993",
+    "vendor_project": "IBM",
+    "product": "InfoSphere BigInsights",
+    "vulnerability_name": "IBM InfoSphere BigInsights Invalid Input Vulnerability",
+    "date_added": "2022-05-25",
+    "short_description": "Certain APIs within BigInsights can take invalid input that might allow attackers unauthorized access to read, write, modify, or delete data.",
+    "matches": {
+      "LLM Tools": [
+        "dify"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-264"
+    ],
+    "ransomware": "Known"
+  },
+  {
+    "cve_id": "CVE-2022-20821",
+    "vendor_project": "Cisco",
+    "product": "IOS XR",
+    "vulnerability_name": "Cisco IOS XR Open Port Vulnerability",
+    "date_added": "2022-05-23",
+    "short_description": "Cisco IOS XR software health check opens TCP port 6379 by default on activation. An attacker can connect to the Redis instance on the open port and allow access to the Redis instance that is running w",
+    "matches": {
+      "Vector Databases": [
+        "redis"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-923"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2019-11707",
+    "vendor_project": "Mozilla",
+    "product": "Firefox and Thunderbird",
+    "vulnerability_name": "Mozilla Firefox and Thunderbird Type Confusion Vulnerability",
+    "date_added": "2022-05-23",
+    "short_description": "Mozilla Firefox and Thunderbird contain a type confusion vulnerability that can occur when manipulating JavaScript objects due to issues in Array.pop, allowing for an exploitable crash.",
+    "matches": {
+      "LLM Tools": [
+        "ray"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-843"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2021-27852",
+    "vendor_project": "Checkbox",
+    "product": "Checkbox Survey",
+    "vulnerability_name": "Checkbox Survey Deserialization of Untrusted Data Vulnerability",
+    "date_added": "2022-04-11",
+    "short_description": "Deserialization of Untrusted Data vulnerability in CheckboxWeb.dll of Checkbox Survey allows an unauthenticated remote attacker to execute arbitrary code.",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization",
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2017-11317",
+    "vendor_project": "Telerik",
+    "product": "User Interface (UI) for ASP.NET AJAX",
+    "vulnerability_name": "Telerik UI for ASP.NET AJAX Unrestricted File Upload Vulnerability",
+    "date_added": "2022-04-11",
+    "short_description": "Telerik.Web.UI in Progress Telerik UI for ASP.NET AJAX allows remote attackers to perform arbitrary file uploads or execute arbitrary code.",
+    "matches": {
+      "ML Frameworks": [
+        "jax"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-326"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2021-42237",
+    "vendor_project": "Sitecore",
+    "product": "XP",
+    "vulnerability_name": "Sitecore XP Remote Command Execution Vulnerability",
+    "date_added": "2022-03-25",
+    "short_description": "Sitcore XP contains an insecure deserialization vulnerability which can allow for remote code execution.",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization",
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Known"
+  },
+  {
+    "cve_id": "CVE-2019-6340",
+    "vendor_project": "Drupal",
+    "product": "Core",
+    "vulnerability_name": "Drupal Core Remote Code Execution Vulnerability",
+    "date_added": "2022-03-25",
+    "short_description": "In Drupal Core, some field types do not properly sanitize data from non-form sources. This can lead to arbitrary PHP code execution in some cases.",
+    "matches": {
+      "Deserialization": [
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2019-10068",
+    "vendor_project": "Kentico",
+    "product": "Xperience",
+    "vulnerability_name": "Kentico Xperience Deserialization of Untrusted Data Vulnerability",
+    "date_added": "2022-03-25",
+    "short_description": "Kentico contains a failure to validate security headers. This deserialization can led to unauthenticated remote code execution.",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization",
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2018-0147",
+    "vendor_project": "Cisco",
+    "product": "Secure Access Control System (ACS)",
+    "vulnerability_name": "Cisco Secure Access Control System Java Deserialization Vulnerability",
+    "date_added": "2022-03-25",
+    "short_description": "A vulnerability in Java deserialization used by Cisco Secure Access Control System (ACS) could allow an unauthenticated, remote attacker to execute arbitrary commands on an affected device. The vulner",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-20"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2015-1427",
+    "vendor_project": "Elastic",
+    "product": "Elasticsearch",
+    "vulnerability_name": "Elasticsearch Groovy Scripting Engine Remote Code Execution Vulnerability",
+    "date_added": "2022-03-25",
+    "short_description": "The Groovy scripting engine in Elasticsearch allows remote attackers to bypass the sandbox protection mechanism and execute arbitrary shell commands.",
+    "matches": {
+      "Vector Databases": [
+        "elasticsearch"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-284"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2014-6332",
+    "vendor_project": "Microsoft",
+    "product": "Windows",
+    "vulnerability_name": "Microsoft Windows Object Linking & Embedding (OLE) Automation Array Remote Code Execution Vulnerability",
+    "date_added": "2022-03-25",
+    "short_description": "OleAut32.dll in OLE in Microsoft Windows allows remote attackers to remotely execute code via a crafted web site.",
+    "matches": {
+      "LLM Tools": [
+        "ray"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-119"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2014-3120",
+    "vendor_project": "Elastic",
+    "product": "Elasticsearch",
+    "vulnerability_name": "Elasticsearch Remote Code Execution Vulnerability",
+    "date_added": "2022-03-25",
+    "short_description": "Elasticsearch enables dynamic scripting, which allows remote attackers to execute arbitrary MVEL expressions and Java code.",
+    "matches": {
+      "Vector Databases": [
+        "elasticsearch"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-284"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2015-5119",
+    "vendor_project": "Adobe",
+    "product": "Flash Player",
+    "vulnerability_name": "Adobe Flash Player Use-After-Free Vulnerability",
+    "date_added": "2022-03-03",
+    "short_description": "A use-after-free vulnerability exists within the ActionScript 3 ByteArray class in Adobe Flash Player that allows an attacker to perform remote code execution.",
+    "matches": {
+      "LLM Tools": [
+        "ray"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-119"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2018-1000861",
+    "vendor_project": "Jenkins",
+    "product": "Jenkins Stapler Web Framework",
+    "vulnerability_name": "Jenkins Stapler Web Framework Deserialization of Untrusted Data Vulnerability",
+    "date_added": "2022-02-10",
+    "short_description": "A code execution vulnerability exists in the Stapler web framework used by Jenkins",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization",
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2018-13382",
+    "vendor_project": "Fortinet",
+    "product": "FortiOS and FortiProxy",
+    "vulnerability_name": "Fortinet FortiOS and FortiProxy Improper Authorization",
+    "date_added": "2022-01-10",
+    "short_description": "An Improper Authorization vulnerability in Fortinet FortiOS and FortiProxy under SSL VPN web portal allows an unauthenticated attacker to modify the password.",
+    "matches": {
+      "LLM Tools": [
+        "dify"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-285"
+    ],
+    "ransomware": "Known"
+  },
+  {
+    "cve_id": "CVE-2017-12149",
+    "vendor_project": "Red Hat",
+    "product": "JBoss Application Server",
+    "vulnerability_name": "Red Hat JBoss Application Server Remote Code Execution Vulnerability",
+    "date_added": "2021-12-10",
+    "short_description": "The JBoss Application Server, shipped with Red Hat Enterprise Application Platform 5.2, allows an attacker to execute arbitrary code via crafted serialized data.",
+    "matches": {
+      "Deserialization": [
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Known"
+  },
+  {
+    "cve_id": "CVE-2021-44228",
+    "vendor_project": "Apache",
+    "product": "Log4j2",
+    "vulnerability_name": "Apache Log4j2 Remote Code Execution Vulnerability",
+    "date_added": "2021-12-10",
+    "short_description": "Apache Log4j2 contains a vulnerability where JNDI features do not protect against attacker-controlled JNDI-related endpoints, allowing for remote code execution.",
+    "matches": {
+      "Deserialization": [
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-20",
+      "CWE-400",
+      "CWE-502"
+    ],
+    "ransomware": "Known"
+  },
+  {
+    "cve_id": "CVE-2021-42321",
+    "vendor_project": "Microsoft",
+    "product": "Exchange",
+    "vulnerability_name": "Microsoft Exchange Server Remote Code Execution Vulnerability",
+    "date_added": "2021-11-17",
+    "short_description": "An authenticated attacker could leverage improper validation in cmdlet arguments within Microsoft Exchange and perform remote code execution.",
+    "matches": {
+      "Deserialization": [
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-184",
+      "CWE-502"
+    ],
+    "ransomware": "Known"
+  },
+  {
+    "cve_id": "CVE-2018-4939",
+    "vendor_project": "Adobe",
+    "product": "ColdFusion",
+    "vulnerability_name": "Adobe ColdFusion Deserialization of Untrusted Data Vulnerability",
+    "date_added": "2021-11-03",
+    "short_description": "Adobe ColdFusion contains a deserialization of untrusted data vulnerability that could allow for code execution.",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization",
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2017-9805",
+    "vendor_project": "Apache",
+    "product": "Struts",
+    "vulnerability_name": "Apache Struts Deserialization of Untrusted Data Vulnerability",
+    "date_added": "2021-11-03",
+    "short_description": "Apache Struts REST Plugin uses an XStreamHandler with an instance of XStream for deserialization without any type filtering, which can lead to remote code execution when deserializing XML payloads.",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization",
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2017-9822",
+    "vendor_project": "DotNetNuke (DNN)",
+    "product": "DotNetNuke (DNN)",
+    "vulnerability_name": "DotNetNuke (DNN) Remote Code Execution Vulnerability",
+    "date_added": "2021-11-03",
+    "short_description": "DotNetNuke (DNN) contains a vulnerability that may allow for remote code execution via cookie deserialization.",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-20"
+    ],
+    "ransomware": "Known"
+  },
+  {
+    "cve_id": "CVE-2021-35464",
+    "vendor_project": "ForgeRock",
+    "product": "Access Management (AM)",
+    "vulnerability_name": "ForgeRock Access Management (AM) Core Server Remote Code Execution Vulnerability",
+    "date_added": "2021-11-03",
+    "short_description": "ForgeRock Access Management (AM) Core Server allows an attacker who sends a specially crafted HTTP request to one of three endpoints (/ccversion/Version, /ccversion/Masthead, or /ccversion/ButtonFrame",
+    "matches": {
+      "Deserialization": [
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Known"
+  },
+  {
+    "cve_id": "CVE-2020-17144",
+    "vendor_project": "Microsoft",
+    "product": "Exchange Server",
+    "vulnerability_name": "Microsoft Exchange Server Remote Code Execution Vulnerability",
+    "date_added": "2021-11-03",
+    "short_description": "Microsoft Exchange Server improperly validates cmdlet arguments which allow an attacker to perform remote code execution.",
+    "matches": {
+      "Deserialization": [
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2021-26857",
+    "vendor_project": "Microsoft",
+    "product": "Exchange Server",
+    "vulnerability_name": "Microsoft Exchange Server Remote Code Execution Vulnerability",
+    "date_added": "2021-11-03",
+    "short_description": "Microsoft Exchange Server contains an unspecified vulnerability that allows for remote code execution. This vulnerability is part of the ProxyLogon exploit chain.",
+    "matches": {
+      "Deserialization": [
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Known"
+  },
+  {
+    "cve_id": "CVE-2019-17026",
+    "vendor_project": "Mozilla",
+    "product": "Firefox and Thunderbird",
+    "vulnerability_name": "Mozilla Firefox And Thunderbird Type Confusion Vulnerability",
+    "date_added": "2021-11-03",
+    "short_description": "Mozilla Firefox and Thunderbird contain a type confusion vulnerability due to incorrect alias information in the IonMonkey JIT compiler when setting array elements.",
+    "matches": {
+      "LLM Tools": [
+        "ray"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-843"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2020-2555",
+    "vendor_project": "Oracle",
+    "product": "Multiple Products",
+    "vulnerability_name": "Oracle Multiple Products Remote Code Execution Vulnerability",
+    "date_added": "2021-11-03",
+    "short_description": "Multiple Oracle products contain a remote code execution vulnerability that allows an unauthenticated attacker with network access via T3 or HTTP to takeover the affected system. Impacted Oracle produ",
+    "matches": {
+      "Deserialization": [
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2015-4852",
+    "vendor_project": "Oracle",
+    "product": "WebLogic Server",
+    "vulnerability_name": "Oracle WebLogic Server Deserialization of Untrusted Data Vulnerability",
+    "date_added": "2021-11-03",
+    "short_description": "Oracle WebLogic Server contains a deserialization of untrusted data vulnerability within Apache Commons, which can allow for for remote code execution.",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization",
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2019-16256",
+    "vendor_project": "SIMalliance",
+    "product": "Toolbox Browser",
+    "vulnerability_name": "SIMalliance Toolbox Browser Command Injection Vulnerability",
+    "date_added": "2021-11-03",
+    "short_description": "SIMalliance Toolbox Browser contains an command injection vulnerability that could allow remote attackers to retrieve location and IMEI information or execute a range of other attacks by modifying the",
+    "matches": {
+      "LLM Tools": [
+        "dify"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2017-9248",
+    "vendor_project": "Progress",
+    "product": "ASP.NET AJAX and Sitefinity",
+    "vulnerability_name": "Progress Telerik UI for ASP.NET AJAX and Sitefinity Cryptographic Weakness Vulnerability",
+    "date_added": "2021-11-03",
+    "short_description": "Progress Telerik UI for ASP.NET AJAX and Sitefinity have a cryptographic weakness in Telerik.Web.UI.dll that can be exploited to disclose encryption keys (Telerik.Web.UI.DialogParametersEncryptionKey ",
+    "matches": {
+      "ML Frameworks": [
+        "jax"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-522"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2020-17496",
+    "vendor_project": "vBulletin",
+    "product": "vBulletin",
+    "vulnerability_name": "vBulletin PHP Module Remote Code Execution Vulnerability",
+    "date_added": "2021-11-03",
+    "short_description": "The PHP module within vBulletin contains an unspecified vulnerability that allows for remote code execution via crafted subWidgets data in an ajax/render/widget_tabbedcontainer_tab_panel request. This",
+    "matches": {
+      "ML Frameworks": [
+        "jax"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-74"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2020-10189",
+    "vendor_project": "Zoho",
+    "product": "ManageEngine",
+    "vulnerability_name": "Zoho ManageEngine Desktop Central File Upload Vulnerability",
+    "date_added": "2021-11-03",
+    "short_description": "Zoho ManageEngine Desktop Central contains a file upload vulnerability that allows for unauthenticated remote code execution.",
+    "matches": {
+      "Deserialization": [
+        "cwe-502"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.7,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-502"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2025-8875",
+    "vendor_project": "N-able",
+    "product": "N-Central",
+    "vulnerability_name": "N-able N-Central Insecure Deserialization Vulnerability",
+    "date_added": "2025-08-13",
+    "short_description": "N-able N-Central contains an insecure deserialization vulnerability that could lead to command execution.",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.65,
+    "is_recent_90d": false,
+    "cwes": [],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2025-30406",
+    "vendor_project": "Gladinet",
+    "product": "CentreStack",
+    "vulnerability_name": "Gladinet CentreStack and Triofox Use of Hard-coded Cryptographic Key Vulnerability",
+    "date_added": "2025-04-08",
+    "short_description": "Gladinet CentreStack and Triofox contains a use of hard-coded cryptographic key vulnerability in the way that the application manages keys used for ViewState integrity verification. Successful exploit",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.65,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-321"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2020-14644",
+    "vendor_project": "Oracle",
+    "product": "WebLogic Server",
+    "vulnerability_name": "Oracle WebLogic Server Remote Code Execution Vulnerability",
+    "date_added": "2024-09-18",
+    "short_description": "Oracle WebLogic Server, a product within the Fusion Middleware suite, contains a deserialization vulnerability. Unauthenticated attackers with network access via T3 or IIOP can exploit this vulnerabil",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.65,
+    "is_recent_90d": false,
+    "cwes": [],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2021-45046",
+    "vendor_project": "Apache",
+    "product": "Log4j2",
+    "vulnerability_name": "Apache Log4j2 Deserialization of Untrusted Data Vulnerability",
+    "date_added": "2023-05-01",
+    "short_description": "Apache Log4j2 contains a deserialization of untrusted data vulnerability due to the incomplete fix of CVE-2021-44228, where the Thread Context Lookup Pattern is vulnerable to remote code execution in ",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.65,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-917"
+    ],
+    "ransomware": "Known"
+  },
+  {
+    "cve_id": "CVE-2023-26360",
+    "vendor_project": "Adobe",
+    "product": "ColdFusion",
+    "vulnerability_name": "Adobe ColdFusion Deserialization of Untrusted Data Vulnerability",
+    "date_added": "2023-03-15",
+    "short_description": "Adobe ColdFusion contains a deserialization of untrusted data vulnerability that allows for remote code execution.",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.65,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-284"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2020-28949",
+    "vendor_project": "PEAR",
+    "product": "Archive_Tar",
+    "vulnerability_name": "PEAR Archive_Tar Deserialization of Untrusted Data Vulnerability",
+    "date_added": "2022-08-25",
+    "short_description": "PEAR Archive_Tar allows an unserialization attack because phar: is blocked but PHAR: is not blocked. PEAR stands for PHP Extension and Application Repository and it is an open-source framework and dis",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.65,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-74"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2020-1147",
+    "vendor_project": "Microsoft",
+    "product": ".NET Framework, SharePoint, Visual Studio",
+    "vulnerability_name": "Microsoft .NET Framework, SharePoint, and Visual Studio Remote Code Execution Vulnerability",
+    "date_added": "2021-11-03",
+    "short_description": "Microsoft .NET Framework, Microsoft SharePoint, and Visual Studio contain a remote code execution vulnerability when the software fails to check the source markup of XML file input. Successful exploit",
+    "matches": {
+      "Deserialization": [
+        "deserialization",
+        "serialization"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.65,
+    "is_recent_90d": false,
+    "cwes": [],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2026-45321",
+    "vendor_project": "TanStack",
+    "product": "TanStack",
+    "vulnerability_name": "TanStack Unspecified Vulnerability",
+    "date_added": "2026-05-27",
+    "short_description": "TanStack contains an unspecified vulnerability that allowed malicious versions of the product to be published to the npm registry to publish credential-stealing malware under a trusted identity.",
+    "matches": {
+      "Python Supply Chain": [
+        "npm"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.6,
+    "is_recent_90d": true,
+    "cwes": [],
+    "ransomware": "Known"
+  },
+  {
+    "cve_id": "CVE-2022-33891",
+    "vendor_project": "Apache",
+    "product": "Spark",
+    "vulnerability_name": "Apache Spark Command Injection Vulnerability",
+    "date_added": "2023-03-07",
+    "short_description": "Apache Spark contains a command injection vulnerability via Spark User Interface (UI) when Access Control Lists (ACLs) are enabled.",
+    "matches": {
+      "Data Pipelines": [
+        "apache spark"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.6,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-78"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2021-21315",
+    "vendor_project": "Npm package",
+    "product": "System Information Library for Node.JS",
+    "vulnerability_name": "System Information Library for Node.JS Command Injection",
+    "date_added": "2022-01-18",
+    "short_description": "In this vulnerability, an attacker can send a malicious payload that will exploit the name parameter. After successful exploitation, attackers can execute remote.",
+    "matches": {
+      "Python Supply Chain": [
+        "npm"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.6,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-78"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2020-11978",
+    "vendor_project": "Apache",
+    "product": "Airflow",
+    "vulnerability_name": "Apache Airflow Command Injection",
+    "date_added": "2022-01-18",
+    "short_description": "A remote code/command injection vulnerability was discovered in one of the example DAGs shipped with Airflow.",
+    "matches": {
+      "Data Pipelines": [
+        "apache airflow"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.6,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-78"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2021-27860",
+    "vendor_project": "FatPipe",
+    "product": "WARP, IPVPN, and MPVPN software",
+    "vulnerability_name": "FatPipe WARP, IPVPN, and MPVPN Configuration Upload exploit",
+    "date_added": "2022-01-10",
+    "short_description": "A vulnerability in the web management interface of FatPipe WARP, IPVPN, and MPVPN software allows a remote, unauthenticated attacker to upload a file to any location on the filesystem.",
+    "matches": {
+      "Python Supply Chain": [
+        "pip"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.6,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-434"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2025-54313",
+    "vendor_project": "Prettier",
+    "product": "eslint-config-prettier",
+    "vulnerability_name": "Prettier eslint-config-prettier Embedded Malicious Code Vulnerability",
+    "date_added": "2026-01-22",
+    "short_description": "Prettier eslint-config-prettier contains an embedded malicious code vulnerability. Installing an affected package executes an install.js file that launches the node-gyp.dll malware on Windows.",
+    "matches": {
+      "Python Supply Chain": [
+        "npm"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.55,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-506"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2025-59374",
+    "vendor_project": "ASUS",
+    "product": "Live Update",
+    "vulnerability_name": "ASUS Live Update Embedded Malicious Code Vulnerability",
+    "date_added": "2025-12-17",
+    "short_description": "ASUS Live Update contains an embedded malicious code vulnerability client were distributed with unauthorized modifications introduced through a supply chain compromise. The modified builds could cause",
+    "matches": {
+      "Python Supply Chain": [
+        "supply chain"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.55,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-506"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2025-30066",
+    "vendor_project": "tj-actions",
+    "product": "changed-files GitHub Action",
+    "vulnerability_name": "tj-actions/changed-files GitHub Action Embedded Malicious Code Vulnerability",
+    "date_added": "2025-03-18",
+    "short_description": "tj-actions/changed-files GitHub Action contains an embedded malicious code vulnerability that allows a remote attacker to discover secrets by reading Github Actions Workflow Logs. These secrets may in",
+    "matches": {
+      "Python Supply Chain": [
+        "npm"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.55,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-506"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2020-17519",
+    "vendor_project": "Apache",
+    "product": "Flink",
+    "vulnerability_name": "Apache Flink Improper Access Control Vulnerability",
+    "date_added": "2024-05-23",
+    "short_description": "Apache Flink contains an improper access control vulnerability that allows an attacker to read any file on the local filesystem of the JobManager through its REST interface.",
+    "matches": {
+      "Data Pipelines": [
+        "apache flink"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.55,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-552"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2022-0847",
+    "vendor_project": "Linux",
+    "product": "Kernel",
+    "vulnerability_name": "Linux Kernel Privilege Escalation Vulnerability",
+    "date_added": "2022-04-25",
+    "short_description": "Linux kernel contains an improper initialization vulnerability where an unprivileged local user could escalate their privileges on the system. This vulnerability has the moniker of \"Dirty Pipe.\"",
+    "matches": {
+      "Python Supply Chain": [
+        "pip"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.55,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-665"
+    ],
+    "ransomware": "Unknown"
+  },
+  {
+    "cve_id": "CVE-2020-13927",
+    "vendor_project": "Apache",
+    "product": "Airflow's Experimental API",
+    "vulnerability_name": "Apache Airflow's Experimental API Authentication Bypass",
+    "date_added": "2022-01-18",
+    "short_description": "The previous default setting for Airflow's Experimental API was to allow all API requests without authentication.",
+    "matches": {
+      "Data Pipelines": [
+        "apache airflow"
+      ]
+    },
+    "num_topics": 1,
+    "relevance": 0.55,
+    "is_recent_90d": false,
+    "cwes": [
+      "CWE-1188",
+      "CWE-306"
+    ],
+    "ransomware": "Unknown"
+  }
+]

@@ -119,6 +119,167 @@ def covered_topics(items: list[RawIntelItem], target_topics: list[str]) -> set[s
     return covered & set(target_topics)
 
 
+# ---------------------------------------------------------------- quota coverage
+# Depth-quota coverage for the coverage-first objective (direction 1): a target
+# topic counts as covered only once >= quota *relevant* items map to it. The
+# topic for an item prefers the embedding-tier label written by the relevance
+# pipeline (metadata["relevance"]["topic"]), then source-assigned topics, then a
+# keyword scan, so coverage degrades gracefully when no embedder is configured.
+
+DEFAULT_COVERAGE_QUOTA = 3
+RELEVANT_SCORE_THRESHOLD = 0.68  # mirrors scripts/eval_ab.py relevance gate
+
+
+def coverage_quota() -> int:
+    raw = os.getenv("INTEL_COVERAGE_QUOTA")
+    if not raw:
+        return DEFAULT_COVERAGE_QUOTA
+    try:
+        return max(1, int(raw))
+    except ValueError:
+        return DEFAULT_COVERAGE_QUOTA
+
+
+def item_is_relevant(item: RawIntelItem) -> bool:
+    relevance = item.metadata.get("relevance") or {}
+    return relevance.get("label") == "relevant" or float(item.relevance_score) >= RELEVANT_SCORE_THRESHOLD
+
+
+def item_target_topic(item: RawIntelItem, target_set: set[str]) -> str | None:
+    relevance = item.metadata.get("relevance") or {}
+    topic = relevance.get("topic")
+    if topic in target_set:
+        return topic
+    for topic in item.metadata.get("topics", []):
+        if topic in target_set:
+            return topic
+    for topic in detect_topics(f"{item.title} {item.summary} {item.raw_text or ''}"):
+        if topic in target_set:
+            return topic
+    return None
+
+
+def relevant_topic_counts(items: list[RawIntelItem], target_topics: list[str]) -> dict[str, int]:
+    target_set = set(target_topics)
+    counts = {topic: 0 for topic in target_topics}
+    for item in items:
+        if not item_is_relevant(item):
+            continue
+        topic = item_target_topic(item, target_set)
+        if topic is not None:
+            counts[topic] += 1
+    return counts
+
+
+def quota_open_gaps(
+    items: list[RawIntelItem],
+    target_topics: list[str],
+    quota: int,
+) -> list[str]:
+    counts = relevant_topic_counts(items, target_topics)
+    return [topic for topic in target_topics if counts.get(topic, 0) < quota]
+
+
+def coverage_completeness(
+    items: list[RawIntelItem],
+    target_topics: list[str],
+    quota: int,
+) -> float:
+    if not target_topics:
+        return 1.0
+    counts = relevant_topic_counts(items, target_topics)
+    covered = sum(1 for topic in target_topics if counts.get(topic, 0) >= quota)
+    return covered / len(target_topics)
+
+
+# ---------------------------------------------------------------- marginal info
+# Per-round "new information amount" for the termination decision. A round's
+# value is the count of items that are simultaneously NEW (not a duplicate of a
+# prior item) and RELEVANT (3-tier label / score gate). Duplicates and noise are
+# therefore excluded by construction, so the headline scalar
+# new_relevant_per_call directly answers "how much fresh, on-topic intel did this
+# round's API calls actually buy?". The search is "stalled"/exhausted when that
+# yield stays below a threshold for several consecutive rounds.
+
+DEFAULT_STALL_PATIENCE = 2
+DEFAULT_MIN_NEW_RELEVANT_PER_CALL = 0.5
+
+
+def stall_patience() -> int:
+    raw = os.getenv("INTEL_STALL_PATIENCE")
+    if not raw:
+        return DEFAULT_STALL_PATIENCE
+    try:
+        return max(1, int(raw))
+    except ValueError:
+        return DEFAULT_STALL_PATIENCE
+
+
+def min_new_relevant_per_call() -> float:
+    raw = os.getenv("INTEL_MIN_NEW_RELEVANT_PER_CALL")
+    if not raw:
+        return DEFAULT_MIN_NEW_RELEVANT_PER_CALL
+    try:
+        return max(0.0, float(raw))
+    except ValueError:
+        return DEFAULT_MIN_NEW_RELEVANT_PER_CALL
+
+
+def round_call_count(entry: QueryHistoryEntry) -> int:
+    plans = entry.metadata.get("source_query_plans") or []
+    return max(1, len(plans) or len(entry.source_names))
+
+
+def round_new_relevant(
+    entry: QueryHistoryEntry,
+    item_index: dict[str, RawIntelItem],
+) -> int:
+    new_ids = entry.metadata.get("new_item_ids") or []
+    return sum(
+        1
+        for item_id in new_ids
+        if item_id in item_index and item_is_relevant(item_index[item_id])
+    )
+
+
+def round_information_gain(
+    entry: QueryHistoryEntry,
+    item_index: dict[str, RawIntelItem],
+) -> dict[str, Any]:
+    result_count = entry.result_count
+    new_total = len(entry.metadata.get("new_item_ids") or [])
+    new_relevant = round_new_relevant(entry, item_index)
+    calls = round_call_count(entry)
+    return {
+        "round_index": entry.round_index,
+        "new_relevant": new_relevant,
+        "new_total": new_total,
+        "result_count": result_count,
+        "calls": calls,
+        "duplicate_ratio": round(entry.duplicate_ratio, 3),
+        "irrelevant_share": round(1 - new_relevant / new_total, 3) if new_total else 1.0,
+        "new_relevant_per_call": round(new_relevant / calls, 3),
+        "informative_share": round(new_relevant / result_count, 3) if result_count else 0.0,
+    }
+
+
+def is_search_stalled(
+    blackboard: IntelRunBlackboard,
+    patience: int,
+    min_yield: float,
+) -> bool:
+    """True when the last `patience` rounds each produced fewer than `min_yield`
+    new relevant items per API call (the search is exhausted)."""
+    history = blackboard.query_history
+    if len(history) < patience:
+        return False
+    item_index = {item.item_id: item for item in blackboard.raw_items}
+    return all(
+        round_information_gain(entry, item_index)["new_relevant_per_call"] < min_yield
+        for entry in history[-patience:]
+    )
+
+
 def semantic_terms_for_source(
     semantic_expansion: SearchSemanticExpansionOutput | None,
     source_name: str,

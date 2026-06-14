@@ -121,5 +121,47 @@ class RelevancePipelineTests(unittest.TestCase):
         self.assertEqual(content_hash(_item("x", 0.5)), content_hash(_item("y", 0.9)))
 
 
+class TopicAssignmentTests(unittest.TestCase):
+    @staticmethod
+    def _embedder(texts):
+        vectors = []
+        for text in texts:
+            if "PI anchor" in text:
+                vectors.append([1.0, 0.0])
+            elif "JB anchor" in text:
+                vectors.append([0.0, 1.0])
+            elif "pi item" in text:
+                vectors.append([0.96, 0.04])
+            else:
+                vectors.append([0.04, 0.96])
+        return vectors
+
+    def _config(self, temp_dir: str) -> RelevanceConfig:
+        return RelevanceConfig(
+            cache_path=Path(temp_dir) / "relevance_cache.jsonl",
+            anchors={"prompt injection": ["PI anchor"], "jailbreak": ["JB anchor"]},
+        )
+
+    def test_embedding_tier_assigns_best_target_topic(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            pipeline = RelevancePipeline(
+                config=self._config(temp_dir), embedder=self._embedder
+            )
+            item = _item("a", 0.5, title="pi item borderline")
+            pipeline.annotate([item])
+            self.assertEqual(item.metadata["relevance"]["method"], "embedding")
+            self.assertEqual(item.metadata["relevance"]["label"], "relevant")
+            self.assertEqual(item.metadata["relevance"]["topic"], "prompt injection")
+
+    def test_assign_topic_public_helper(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            pipeline = RelevancePipeline(
+                config=self._config(temp_dir), embedder=self._embedder
+            )
+            topic, score = pipeline.assign_topic(_item("b", 0.5, title="pi item two"))
+            self.assertEqual(topic, "prompt injection")
+            self.assertIsNotNone(score)
+
+
 if __name__ == "__main__":
     unittest.main()

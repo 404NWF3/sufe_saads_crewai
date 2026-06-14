@@ -24,6 +24,7 @@ def render_round_context(
     round_index: int,
     max_rounds: int,
     bandit_summary: str | None = None,
+    info_gain: dict[str, Any] | None = None,
     recent_queries: int = 8,
     sample_titles: int = 8,
     max_chars: int = DEFAULT_MAX_CHARS,
@@ -82,6 +83,16 @@ def render_round_context(
                 lines.append(
                     f"{source} | {row['calls']:.0f} | {row['new']:.0f} | {rate:.2f}"
                 )
+
+    if info_gain:
+        lines.append("")
+        lines.append(
+            "Marginal info (latest round): "
+            f"new_relevant/call={info_gain.get('new_relevant_per_call', 0)} "
+            f"| dup={info_gain.get('duplicate_ratio', 0):.0%} "
+            f"| noise(new)={info_gain.get('irrelevant_share', 0):.0%} "
+            f"(stop if new_relevant/call stays low)"
+        )
 
     if bandit_summary:
         lines.append("")

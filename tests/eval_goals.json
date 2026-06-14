@@ -1,6 +1,6 @@
 {
-  "version": "2026-06-13",
-  "description": "Frozen benchmark goals for INTEL_ENGINE A/B evaluation (roadmap chapter 9). Do not edit goals between comparison runs; bump version instead.",
+  "version": "2026-06-13.2",
+  "description": "Frozen benchmark goals for INTEL_ENGINE A/B evaluation (roadmap chapter 9). Do not edit goals between comparison runs; bump version instead. v2 adds multi-topic goals so depth-quota coverage completeness is non-trivial to satisfy.",
   "protocol": {
     "engines": ["rules", "sdk"],
     "repeats_per_engine": 3,
@@ -67,6 +67,22 @@
         "model supply chain",
         "rag poisoning"
       ],
+      "max_rounds": 8,
+      "max_results_per_round": 80
+    },
+    {
+      "goal_id": "injection-jailbreak-agent",
+      "run_goal": "Collect intelligence spanning prompt injection, jailbreak, and autonomous agent tool abuse.",
+      "initial_query": "LLM prompt injection jailbreak agent tool abuse function calling vulnerability",
+      "target_topics": ["prompt injection", "jailbreak", "agent tool abuse"],
+      "max_rounds": 8,
+      "max_results_per_round": 80
+    },
+    {
+      "goal_id": "supplychain-rag-leakage",
+      "run_goal": "Collect intelligence spanning model supply chain compromise, RAG poisoning, and data leakage.",
+      "initial_query": "model supply chain unsafe deserialization RAG poisoning vector database data leakage",
+      "target_topics": ["model supply chain", "rag poisoning", "data leakage"],
       "max_rounds": 8,
       "max_results_per_round": 80
     }

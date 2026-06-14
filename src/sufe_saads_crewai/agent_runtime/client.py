@@ -158,6 +158,12 @@ def build_options(
 ) -> Any:
     from claude_agent_sdk import ClaudeAgentOptions
 
+    # Note: ClaudeAgentOptions exposes no `temperature`/sampling field (only model,
+    # extra_args, settings, effort, thinking), and the DeepSeek reasoning model
+    # ignores temperature anyway, so decision-sampling temperature is not
+    # controllable here. Run-to-run variance is instead reduced by the coverage
+    # gate (deterministic stop, intel/sdk_loop) and per-repeat bandit isolation
+    # (scripts/eval_ab.py).
     return ClaudeAgentOptions(
         model=model or main_model(),
         env=anthropic_env(),

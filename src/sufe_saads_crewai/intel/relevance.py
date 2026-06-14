@@ -117,15 +117,15 @@ class RelevancePipeline:
         self.config = config or RelevanceConfig.from_env()
         self.embedder = embedder
         self.llm_judge = llm_judge
-        self._anchor_vectors: list[list[float]] | None = None
-        self._cache: dict[str, float] | None = None
+        self._anchor_vectors: dict[str, list[list[float]]] | None = None
+        self._cache: dict[str, tuple[float, str | None]] | None = None
 
     # ------------------------------------------------------------- cache
 
-    def _load_cache(self) -> dict[str, float]:
+    def _load_cache(self) -> dict[str, tuple[float, str | None]]:
         if self._cache is not None:
             return self._cache
-        cache: dict[str, float] = {}
+        cache: dict[str, tuple[float, str | None]] = {}
         path = self.config.cache_path
         if path.is_file():
             for line in path.read_text(encoding="utf-8").splitlines():
@@ -134,32 +134,51 @@ class RelevancePipeline:
                     continue
                 try:
                     record = json.loads(line)
-                    cache[str(record["hash"])] = float(record["embedding_score"])
+                    topic = record.get("topic")
+                    cache[str(record["hash"])] = (
+                        float(record["embedding_score"]),
+                        topic if isinstance(topic, str) else None,
+                    )
                 except (json.JSONDecodeError, KeyError, TypeError, ValueError):
                     continue
         self._cache = cache
         return cache
 
-    def _append_cache(self, item_hash: str, score: float) -> None:
+    def _append_cache(self, item_hash: str, score: float, topic: str | None) -> None:
         cache = self._load_cache()
         if item_hash in cache:
             return
-        cache[item_hash] = score
+        cache[item_hash] = (score, topic)
         path = self.config.cache_path
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "a", encoding="utf-8") as fh:
-            fh.write(json.dumps({"hash": item_hash, "embedding_score": round(score, 4)}) + "\n")
+            fh.write(
+                json.dumps(
+                    {"hash": item_hash, "embedding_score": round(score, 4), "topic": topic}
+                )
+                + "\n"
+            )
 
     # ------------------------------------------------------------- tiers
 
-    def _anchor_matrix(self) -> list[list[float]]:
+    def _anchor_groups(self) -> dict[str, list[list[float]]]:
+        """Per-topic anchor vectors so an item can be assigned its best target topic."""
         if self._anchor_vectors is None:
-            texts = [text for anchors in self.config.anchors.values() for text in anchors]
+            topics = list(self.config.anchors.keys())
+            texts = [text for topic in topics for text in self.config.anchors[topic]]
             assert self.embedder is not None
-            self._anchor_vectors = self.embedder(texts)
+            vectors = self.embedder(texts)
+            groups: dict[str, list[list[float]]] = {}
+            cursor = 0
+            for topic in topics:
+                span = len(self.config.anchors[topic])
+                groups[topic] = vectors[cursor : cursor + span]
+                cursor += span
+            self._anchor_vectors = groups
         return self._anchor_vectors
 
-    def _embedding_score(self, item: RawIntelItem) -> float | None:
+    def _embedding_assess(self, item: RawIntelItem) -> tuple[float, str | None] | None:
+        """(max anchor similarity, best-matching target topic), or None on failure."""
         if self.embedder is None:
             return None
         item_hash = content_hash(item)
@@ -168,18 +187,29 @@ class RelevancePipeline:
             return cached
         try:
             vector = self.embedder([f"{item.title}. {item.summary}"[:2000]])[0]
-            score = max(
-                cosine_similarity(vector, anchor) for anchor in self._anchor_matrix()
-            )
+            best_topic: str | None = None
+            best_score = -1.0
+            for topic, anchors in self._anchor_groups().items():
+                topic_score = max(cosine_similarity(vector, anchor) for anchor in anchors)
+                if topic_score > best_score:
+                    best_score, best_topic = topic_score, topic
         except Exception:  # noqa: BLE001 - embedding failure -> stay on rule score
             return None
-        self._append_cache(item_hash, score)
-        return score
+        self._append_cache(item_hash, best_score, best_topic)
+        return best_score, best_topic
+
+    def assign_topic(self, item: RawIntelItem) -> tuple[str | None, float | None]:
+        """Public: best-matching target topic for an item via the embedding tier."""
+        assessment = self._embedding_assess(item)
+        if assessment is None:
+            return None, None
+        score, topic = assessment
+        return topic, score
 
     def annotate(self, items: list[RawIntelItem]) -> dict[str, int]:
         """Annotate items in place; returns per-method counters."""
         counts = {"rule": 0, "embedding": 0, "llm": 0, "uncertain": 0}
-        llm_pending: list[tuple[RawIntelItem, float]] = []
+        llm_pending: list[tuple[RawIntelItem, float, str | None]] = []
 
         for item in items:
             rule_score = float(item.relevance_score)
@@ -192,56 +222,70 @@ class RelevancePipeline:
                 counts["rule"] += 1
                 continue
 
-            embedding_score = self._embedding_score(item)
-            if embedding_score is None:
+            assessment = self._embedding_assess(item)
+            if assessment is None:
                 _set_relevance(item, rule_score, "uncertain", "rule")
                 counts["uncertain"] += 1
                 continue
+            embedding_score, best_topic = assessment
             if embedding_score >= self.config.embedding_accept:
-                _set_relevance(item, embedding_score, "relevant", "embedding")
+                _set_relevance(item, embedding_score, "relevant", "embedding", best_topic)
                 counts["embedding"] += 1
                 continue
             if embedding_score < self.config.embedding_reject:
-                _set_relevance(item, embedding_score, "irrelevant", "embedding")
+                _set_relevance(item, embedding_score, "irrelevant", "embedding", best_topic)
                 counts["embedding"] += 1
                 continue
-            llm_pending.append((item, embedding_score))
+            llm_pending.append((item, embedding_score, best_topic))
 
         if llm_pending and self.llm_judge is not None:
             for start in range(0, len(llm_pending), self.config.llm_batch_size):
                 batch = llm_pending[start : start + self.config.llm_batch_size]
                 payload = [
                     {"title": item.title[:200], "summary": item.summary[:400]}
-                    for item, _ in batch
+                    for item, _, _ in batch
                 ]
                 try:
                     verdicts = self.llm_judge(payload)
                 except Exception:  # noqa: BLE001 - judge failure -> tier-2 result
                     verdicts = [None] * len(batch)
-                for (item, embedding_score), verdict in zip(batch, verdicts):
+                for (item, embedding_score, best_topic), verdict in zip(batch, verdicts):
                     if verdict is None:
-                        _set_relevance(item, embedding_score, "uncertain", "embedding")
+                        _set_relevance(item, embedding_score, "uncertain", "embedding", best_topic)
                         counts["uncertain"] += 1
                     else:
                         score = 0.85 if verdict else 0.15
                         _set_relevance(
-                            item, score, "relevant" if verdict else "irrelevant", "llm"
+                            item,
+                            score,
+                            "relevant" if verdict else "irrelevant",
+                            "llm",
+                            best_topic,
                         )
                         counts["llm"] += 1
         else:
-            for item, embedding_score in llm_pending:
-                _set_relevance(item, embedding_score, "uncertain", "embedding")
+            for item, embedding_score, best_topic in llm_pending:
+                _set_relevance(item, embedding_score, "uncertain", "embedding", best_topic)
                 counts["uncertain"] += 1
 
         return counts
 
 
-def _set_relevance(item: RawIntelItem, score: float, label: str, method: str) -> None:
-    item.metadata["relevance"] = {
+def _set_relevance(
+    item: RawIntelItem,
+    score: float,
+    label: str,
+    method: str,
+    topic: str | None = None,
+) -> None:
+    relevance: dict[str, Any] = {
         "score": round(float(score), 4),
         "label": label,
         "method": method,
     }
+    if topic:
+        relevance["topic"] = topic
+    item.metadata["relevance"] = relevance
 
 
 # ---------------------------------------------------------------- default clients

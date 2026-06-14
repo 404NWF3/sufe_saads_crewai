@@ -22,8 +22,11 @@ import time
 from pathlib import Path
 from typing import Any
 
+from sufe_saads_crewai.intel import rules
+from sufe_saads_crewai.intel.bandit import SourceBandit
 from sufe_saads_crewai.intel.engine import create_intel_controller
 from sufe_saads_crewai.persistence import JsonIntelRunStore
+from sufe_saads_crewai.topic_utils import TARGET_SECURITY_TOPICS
 
 
 # Plain keyword params; anything beyond these marks an advanced-operator call
@@ -83,21 +86,51 @@ def stop_round_deviation(blackboard: Any) -> dict[str, Any]:
     }
 
 
-def run_metrics(blackboard: Any) -> dict[str, Any]:
+def stop_reason(blackboard: Any) -> tuple[str, bool]:
+    """Classify why the run stopped from its terminal STOP action; also report
+    whether the stall valve fired. Engine-agnostic (rules engine -> not stall)."""
+    stops = [
+        action
+        for action in blackboard.action_history
+        if getattr(action, "action_type", "") == "STOP"
+    ]
+    if not stops:
+        return "none", False
+    rationale = (stops[-1].rationale or "").lower()
+    if "search exhausted" in rationale:
+        return "stall", True
+    if "max_rounds" in rationale:
+        return "max_rounds", False
+    if "no next query" in rationale:
+        return "no_query", False
+    return "coverage_or_yield", False
+
+
+def run_metrics(blackboard: Any, target_topics: list[str] | None = None) -> dict[str, Any]:
     raw_items = blackboard.raw_items
     api_calls = max(1, blackboard.metrics.api_calls_used)
-    relevant = [
-        item
-        for item in raw_items
-        if (item.metadata.get("relevance") or {}).get("label") == "relevant"
-        or item.relevance_score >= 0.68
-    ]
+    relevant = [item for item in raw_items if rules.item_is_relevant(item)]
     covered = {
         topic
         for item in raw_items
         for topic in item.metadata.get("topics", [])
     }
+    target = target_topics or list(TARGET_SECURITY_TOPICS)
+    quota = rules.coverage_quota()
+    topic_relevant_counts = rules.relevant_topic_counts(raw_items, target)
     novelty_curve = [round(entry.novelty_score, 3) for entry in blackboard.query_history]
+    # New-information curve: new AND relevant items per API call, per round.
+    item_index = {item.item_id: item for item in raw_items}
+    new_relevant_per_call_curve = [
+        rules.round_information_gain(entry, item_index)["new_relevant_per_call"]
+        for entry in blackboard.query_history
+    ]
+    new_relevant_per_call_mean = (
+        round(statistics.mean(new_relevant_per_call_curve), 4)
+        if new_relevant_per_call_curve
+        else 0.0
+    )
+    reason, stopped_by_stall = stop_reason(blackboard)
     telemetry = getattr(blackboard, "engine_telemetry", None) or {}
     decisions = telemetry.get("decisions", {})
     return {
@@ -107,6 +140,18 @@ def run_metrics(blackboard: Any) -> dict[str, Any]:
         "relevant_items": len(relevant),
         "relevant_per_call": round(len(relevant) / api_calls, 4),
         "items_per_call": round(len(raw_items) / api_calls, 4),
+        # Primary objective (direction 1): depth-quota coverage of target topics.
+        "coverage_quota": quota,
+        "coverage_completeness": round(
+            rules.coverage_completeness(raw_items, target, quota), 4
+        ),
+        "topic_relevant_counts": topic_relevant_counts,
+        "open_quota_gaps": rules.quota_open_gaps(raw_items, target, quota),
+        # Termination quality: new-information yield and why the run stopped.
+        "new_relevant_per_call_curve": new_relevant_per_call_curve,
+        "new_relevant_per_call_mean": new_relevant_per_call_mean,
+        "stopped_by_stall": stopped_by_stall,
+        "stop_reason": reason,
         "novelty_curve": novelty_curve,
         "topics_covered": sorted(covered),
         "open_gaps": [gap.taxonomy_or_component for gap in blackboard.coverage_gaps],
@@ -137,8 +182,21 @@ def aggregate(samples: list[dict[str, Any]]) -> dict[str, Any]:
             "max": max(values),
         }
 
+    def rate(key: str) -> float:
+        return round(statistics.mean(1.0 if sample[key] else 0.0 for sample in samples), 4)
+
+    stop_reason_counts: dict[str, int] = {}
+    for sample in samples:
+        stop_reason_counts[sample["stop_reason"]] = (
+            stop_reason_counts.get(sample["stop_reason"], 0) + 1
+        )
+
     return {
         "n": len(samples),
+        "coverage_completeness": stat("coverage_completeness"),
+        "new_relevant_per_call": stat("new_relevant_per_call_mean"),
+        "stall_rate": rate("stopped_by_stall"),
+        "stop_reasons": stop_reason_counts,
         "relevant_per_call": stat("relevant_per_call"),
         "items_per_call": stat("items_per_call"),
         "relevant_items": stat("relevant_items"),
@@ -196,6 +254,12 @@ def main() -> None:
             for repeat in range(repeats):
                 store = JsonIntelRunStore(out_dir / goal["goal_id"] / engine)
                 started = time.perf_counter()
+                # Isolate the bandit per repeat so repeats are independent samples
+                # (the persistent state file otherwise leaks learning across runs
+                # and confounds the measured variance). Ignored by the rules engine.
+                engine_kwargs = (
+                    {"bandit": SourceBandit(state_path=None)} if engine == "sdk" else {}
+                )
                 controller = create_intel_controller(
                     run_goal=goal["run_goal"],
                     initial_query=goal["initial_query"],
@@ -204,14 +268,18 @@ def main() -> None:
                     run_store=store,
                     target_topics=goal.get("target_topics"),
                     engine=engine,
+                    **engine_kwargs,
                 )
                 blackboard = controller.run()
-                metrics = run_metrics(blackboard)
+                metrics = run_metrics(blackboard, goal.get("target_topics"))
                 metrics["run_id"] = blackboard.run_id
                 metrics["wall_seconds"] = round(time.perf_counter() - started, 1)
                 samples.append(metrics)
                 print(
                     f"[eval] {goal['goal_id']} engine={engine} repeat={repeat + 1}/{repeats} "
+                    f"coverage={metrics['coverage_completeness']} "
+                    f"new_rel/call={metrics['new_relevant_per_call_mean']} "
+                    f"stop={metrics['stop_reason']} "
                     f"relevant/call={metrics['relevant_per_call']} rounds={metrics['rounds']}",
                     flush=True,
                 )
@@ -225,8 +293,14 @@ def main() -> None:
     for goal_id, goal_report in report["results"].items():
         line = [goal_id]
         for engine, payload in goal_report.items():
+            agg = payload["aggregate"]
             line.append(
-                f"{engine}: relevant/call={payload['aggregate']['relevant_per_call']['mean']}"
+                f"{engine}: coverage={agg['coverage_completeness']['mean']}"
+                f"(sd{agg['coverage_completeness']['stdev']}) "
+                f"new_rel/call={agg['new_relevant_per_call']['mean']} "
+                f"stall_rate={agg['stall_rate']} "
+                f"relevant/call={agg['relevant_per_call']['mean']}"
+                f"(sd{agg['relevant_per_call']['stdev']})"
             )
         print("  " + " | ".join(line))
 
