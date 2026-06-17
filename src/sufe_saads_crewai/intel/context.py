@@ -25,6 +25,8 @@ def render_round_context(
     max_rounds: int,
     bandit_summary: str | None = None,
     info_gain: dict[str, Any] | None = None,
+    operator_outcomes: list[dict[str, Any]] | None = None,
+    query_outcomes: list[dict[str, Any]] | None = None,
     recent_queries: int = 8,
     sample_titles: int = 8,
     max_chars: int = DEFAULT_MAX_CHARS,
@@ -93,6 +95,36 @@ def render_round_context(
             f"| noise(new)={info_gain.get('irrelevant_share', 0):.0%} "
             f"(stop if new_relevant/call stays low)"
         )
+
+    if operator_outcomes:
+        lines.append("")
+        lines.append(
+            "Operator effectiveness so far (what worked): "
+            "signature | new_rel/call | noise% | calls"
+            + (" | hist" if any("hist_mean" in r for r in operator_outcomes) else "")
+        )
+        for row in operator_outcomes[:6]:
+            hist = (
+                f" | {row['hist_mean']:.2f}" if "hist_mean" in row else ""
+            )
+            lines.append(
+                f"{row['signature']} | {row['new_relevant_per_call']:.2f} "
+                f"| {row['noise']:.0%} | {row['calls']:.0f}{hist}"
+            )
+
+    if query_outcomes and len(query_outcomes) >= 2:
+        ranked = sorted(query_outcomes, key=lambda r: r["new_relevant_per_call"], reverse=True)
+        best = ranked[:2]
+        worst = [r for r in ranked[-2:] if r not in best]
+        lines.append("")
+        lines.append("Past query exemplars (new_rel/call, noise%):")
+        for tag, row in [("BEST", best[0])] + (
+            [("BEST", best[1])] if len(best) > 1 else []
+        ) + [("WORST", w) for w in worst]:
+            lines.append(
+                f"[{tag} g={row['new_relevant_per_call']:.2f} "
+                f"noise={row['noise']:.0%}] {_truncate(row['query'], 80)}"
+            )
 
     if bandit_summary:
         lines.append("")

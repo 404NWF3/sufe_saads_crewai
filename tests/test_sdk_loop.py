@@ -11,6 +11,7 @@ from sufe_saads_crewai.agent_runtime.structured import StructuredDecisionEngine
 from sufe_saads_crewai.intel import rules
 from sufe_saads_crewai.intel.bandit import SourceBandit
 from sufe_saads_crewai.intel.sdk_loop import SdkIntelRunController
+from sufe_saads_crewai.intel.strategy_memory import StrategyMemory
 from sufe_saads_crewai.persistence import JsonIntelRunStore
 from sufe_saads_crewai.schemas import (
     RawIntelItem,
@@ -106,6 +107,8 @@ class SdkLoopFallbackTests(unittest.TestCase):
                 decision_engine=_failing_engine(),
                 bandit=SourceBandit(state_path=None),
                 relevance_pipeline=None,
+                strategy_memory=None,
+                critic_enabled=False,
             )
             result = controller.run()
 
@@ -136,6 +139,8 @@ class SdkLoopFallbackTests(unittest.TestCase):
                 decision_engine=_failing_engine(),
                 bandit=SourceBandit(state_path=None),
                 relevance_pipeline=None,
+                strategy_memory=None,
+                critic_enabled=False,
             ).run()
             payload = json.loads(
                 run_store.run_path(result.run_id).read_text(encoding="utf-8")
@@ -218,6 +223,9 @@ class SdkLoopDecisionTests(unittest.TestCase):
                 decision_engine=engine,
                 bandit=SourceBandit(state_path=None),
                 relevance_pipeline=None,
+                strategy_memory=None,
+                critic_enabled=False,
+                plan_augment=False,
                 target_topics=["prompt injection"],
                 coverage_quota=1,
             ).run()
@@ -269,6 +277,8 @@ class SdkLoopDecisionTests(unittest.TestCase):
                 decision_engine=_scripted_engine(script),
                 bandit=SourceBandit(state_path=None),
                 relevance_pipeline=None,
+                strategy_memory=None,
+                critic_enabled=False,
                 target_topics=["prompt injection"],
                 coverage_quota=1,
             ).run()
@@ -324,6 +334,8 @@ class SdkLoopCoverageGateTests(unittest.TestCase):
                 decision_engine=_scripted_engine(script),
                 bandit=SourceBandit(state_path=None),
                 relevance_pipeline=None,
+                strategy_memory=None,
+                critic_enabled=False,
                 target_topics=["prompt injection", "jailbreak"],
                 coverage_quota=1,
                 min_new_relevant_per_call=0.0,  # isolate: disable the stall valve
@@ -384,6 +396,8 @@ class SdkLoopCoverageGateTests(unittest.TestCase):
                 decision_engine=_scripted_engine(script),
                 bandit=SourceBandit(state_path=None),
                 relevance_pipeline=None,
+                strategy_memory=None,
+                critic_enabled=False,
                 target_topics=["prompt injection", "jailbreak"],
                 coverage_quota=1,
                 min_new_relevant_per_call=0.0,  # isolate: disable the stall valve
@@ -413,6 +427,8 @@ class SdkLoopStallTerminationTests(unittest.TestCase):
                 decision_engine=_failing_engine(),
                 bandit=SourceBandit(state_path=None),
                 relevance_pipeline=None,
+                strategy_memory=None,
+                critic_enabled=False,
                 target_topics=["prompt injection", "jailbreak"],
                 coverage_quota=1,
                 stall_patience=2,
@@ -441,12 +457,202 @@ class SdkLoopStallTerminationTests(unittest.TestCase):
                 decision_engine=_failing_engine(),
                 bandit=SourceBandit(state_path=None),
                 relevance_pipeline=None,
+                strategy_memory=None,
+                critic_enabled=False,
                 target_topics=["prompt injection", "jailbreak"],
                 coverage_quota=1,
                 stall_patience=2,
                 min_new_relevant_per_call=0.0,
             ).run()
             self.assertEqual(len(result.query_history), 4)
+
+
+class SdkLoopSmartnessTests(unittest.TestCase):
+    def test_critic_drops_redundant_proposal(self) -> None:
+        script = {
+            "SourceSelectionDecision": {
+                "selected_sources": ["nvd_cve_api", "arxiv_api"],
+                "follow_bandit": True,
+                "rationale": "r",
+            },
+            "CollectionPlanDecision": {
+                "proposals": [
+                    {
+                        "source_name": "nvd_cve_api",
+                        "query_text": "good nvd query",
+                        "params": {"nvd_keyword_search": "prompt injection"},
+                        "rationale": "r",
+                    },
+                    {
+                        "source_name": "arxiv_api",
+                        "query_text": "redundant arxiv query",
+                        "params": {"arxiv_search_query": "plain words"},
+                        "rationale": "r",
+                    },
+                ],
+                "rationale": "r",
+            },
+            "PlanCritiqueDecision": {
+                "verdicts": [{"index": 1, "action": "drop", "reason": "redundant"}],
+                "uncovered_gaps": [],
+                "rationale": "r",
+            },
+            "CompletenessDecisionOutput": {
+                "should_continue": False,
+                "completeness_score": 0.9,
+                "missing_topics": [],
+                "recommended_next_query": None,
+                "stop_reason": "done",
+                "rationale": "r",
+            },
+        }
+        with TemporaryDirectory() as temp_dir:
+            tool = FakeRegisteredSourceTool()
+            SdkIntelRunController(
+                run_goal="g",
+                initial_query="LLM prompt injection",
+                max_rounds=1,
+                run_store=JsonIntelRunStore(Path(temp_dir) / "intel_runs"),
+                source_tool=tool,
+                decision_engine=_scripted_engine(script),
+                bandit=SourceBandit(state_path=None),
+                relevance_pipeline=None,
+                strategy_memory=None,
+                critic_enabled=True,
+                plan_augment=False,
+                target_topics=["prompt injection"],
+                coverage_quota=1,
+            ).run()
+            executed = {call["query_text"] for call in tool.calls}
+            self.assertIn("good nvd query", executed)
+            self.assertNotIn("redundant arxiv query", executed)
+
+    def test_critic_injects_gap_query_for_uncovered_topic(self) -> None:
+        script = {
+            "SourceSelectionDecision": {
+                "selected_sources": ["arxiv_api", "nvd_cve_api"],
+                "follow_bandit": True,
+                "rationale": "r",
+            },
+            "CollectionPlanDecision": {
+                "proposals": [
+                    {
+                        "source_name": "arxiv_api",
+                        "query_text": "pi arxiv",
+                        "params": {"arxiv_search_query": "prompt injection"},
+                        "rationale": "r",
+                    }
+                ],
+                "rationale": "r",
+            },
+            "PlanCritiqueDecision": {
+                "verdicts": [{"index": 0, "action": "keep", "reason": "ok"}],
+                "uncovered_gaps": ["jailbreak"],
+                "rationale": "r",
+            },
+            "CompletenessDecisionOutput": {
+                "should_continue": False,
+                "completeness_score": 0.9,
+                "missing_topics": [],
+                "recommended_next_query": None,
+                "stop_reason": "done",
+                "rationale": "r",
+            },
+        }
+        with TemporaryDirectory() as temp_dir:
+            result = SdkIntelRunController(
+                run_goal="g",
+                initial_query="LLM prompt injection jailbreak",
+                max_rounds=1,
+                run_store=JsonIntelRunStore(Path(temp_dir) / "intel_runs"),
+                source_tool=FakeRegisteredSourceTool(),
+                decision_engine=_scripted_engine(script),
+                bandit=SourceBandit(state_path=None),
+                relevance_pipeline=None,
+                strategy_memory=None,
+                critic_enabled=True,
+                plan_augment=False,
+                target_topics=["prompt injection", "jailbreak"],
+                coverage_quota=1,
+            ).run()
+            plans = result.query_history[0].metadata["source_query_plans"]
+            strategies = {plan["strategy_name"] for plan in plans}
+            self.assertIn("sdk_critic_gap_fill", strategies)
+
+    def test_augment_mode_keeps_template_breadth(self) -> None:
+        # The agent proposes a single narrow arXiv query; augment mode must still
+        # fire the broad deterministic template sweep alongside it (the Tier-2 fix
+        # for the IJA narrowing/duplication failure).
+        script = {
+            "SourceSelectionDecision": {
+                "selected_sources": ["arxiv_api", "nvd_cve_api", "osv_dev_api", "cisa_kev_json"],
+                "follow_bandit": True,
+                "rationale": "r",
+            },
+            "CollectionPlanDecision": {
+                "proposals": [
+                    {
+                        "source_name": "arxiv_api",
+                        "query_text": "one narrow arxiv query",
+                        "params": {"arxiv_search_query": '(all:"x") AND (cat:cs.CR)'},
+                        "rationale": "r",
+                    }
+                ],
+                "rationale": "r",
+            },
+            "CompletenessDecisionOutput": {
+                "should_continue": False,
+                "completeness_score": 0.9,
+                "missing_topics": [],
+                "recommended_next_query": None,
+                "stop_reason": "done",
+                "rationale": "r",
+            },
+        }
+        with TemporaryDirectory() as temp_dir:
+            result = SdkIntelRunController(
+                run_goal="g",
+                initial_query="LLM prompt injection",
+                max_rounds=1,
+                run_store=JsonIntelRunStore(Path(temp_dir) / "intel_runs"),
+                source_tool=FakeRegisteredSourceTool(),
+                decision_engine=_scripted_engine(script),
+                bandit=SourceBandit(state_path=None),
+                relevance_pipeline=None,
+                strategy_memory=None,
+                critic_enabled=False,
+                plan_augment=True,
+                target_topics=["prompt injection"],
+                coverage_quota=1,
+            ).run()
+            plans = result.query_history[0].metadata["source_query_plans"]
+            strategies = {plan["strategy_name"] for plan in plans}
+            # agent addition present...
+            self.assertIn("sdk_agent_proposal", strategies)
+            # ...but template breadth (multiple deterministic strategies) is kept
+            template_strategies = strategies - {"sdk_agent_proposal"}
+            self.assertTrue(len(template_strategies) >= 2, strategies)
+            sources = {plan["source_name"] for plan in plans}
+            self.assertGreaterEqual(len(sources), 3)  # not narrowed to one source
+
+    def test_strategy_memory_updates_each_round(self) -> None:
+        memory = StrategyMemory(state_path=None)
+        with TemporaryDirectory() as temp_dir:
+            SdkIntelRunController(
+                run_goal="g",
+                initial_query="LLM prompt injection",
+                max_rounds=1,
+                run_store=JsonIntelRunStore(Path(temp_dir) / "intel_runs"),
+                source_tool=FakeRegisteredSourceTool(),
+                decision_engine=_failing_engine(),
+                bandit=SourceBandit(state_path=None),
+                relevance_pipeline=None,
+                strategy_memory=memory,
+                critic_enabled=False,
+                target_topics=["prompt injection"],
+                coverage_quota=1,
+            ).run()
+            self.assertTrue(memory.arms)
 
 
 if __name__ == "__main__":

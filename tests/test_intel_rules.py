@@ -163,6 +163,71 @@ class RulesModuleTests(unittest.TestCase):
         blackboard.query_history = [self._entry(0, ["arxiv:1"])]
         self.assertFalse(rules.is_search_stalled(blackboard, patience=2, min_yield=0.5))
 
+    def test_operator_signature_classifies_combinations(self) -> None:
+        self.assertEqual(
+            rules.operator_signature("nvd_cve_api", {"nvd_keyword_search": "x", "nvd_cwe_id": "CWE-502"}),
+            "nvd:keyword+cwe",
+        )
+        self.assertEqual(rules.operator_signature("nvd_cve_api", {"nvd_keyword_search": "x"}), "nvd:keyword")
+        self.assertEqual(
+            rules.operator_signature("arxiv_api", {"arxiv_search_query": '(all:"x") AND (cat:cs.CR)'}),
+            "arxiv:cat+bool+phrase",
+        )
+        self.assertEqual(rules.operator_signature("arxiv_api", {"arxiv_search_query": "plain words"}), "arxiv:plain")
+        self.assertEqual(
+            rules.operator_signature("osv_dev_api", {"osv_ecosystem": "PyPI", "osv_package_name": "langchain"}),
+            "osv:package",
+        )
+        self.assertEqual(rules.operator_signature("cisa_kev_json", {"cisa_keyword": "rce"}), "cisa:keyword")
+        # has_kev=False must not add the +kev tag
+        self.assertEqual(
+            rules.operator_signature("nvd_cve_api", {"nvd_keyword_search": "x", "nvd_has_kev": False}),
+            "nvd:keyword",
+        )
+
+    def test_operator_outcomes_attributes_items_to_signatures(self) -> None:
+        def item(item_id: str, source: str, params: dict, score: float) -> RawIntelItem:
+            return RawIntelItem(
+                item_id=item_id,
+                source_name=source,
+                source_uri=f"https://example.test/{item_id}",
+                title="t",
+                summary="t",
+                relevance_score=score,
+                metadata={"source_query_params": params},
+            )
+
+        osv_params = {"osv_ecosystem": "PyPI", "osv_package_name": "langchain"}
+        nvd_params = {"nvd_keyword_search": "agent"}
+        blackboard = IntelRunBlackboard(run_id="t", run_goal="g")
+        blackboard.raw_items = [
+            item("a", "osv_dev_api", osv_params, 0.9),
+            item("b", "osv_dev_api", osv_params, 0.9),
+            item("c", "nvd_cve_api", nvd_params, 0.1),  # irrelevant
+        ]
+        blackboard.query_history = [
+            QueryHistoryEntry(
+                query_text="q",
+                source_names=["osv_dev_api", "nvd_cve_api"],
+                result_count=3,
+                round_index=0,
+                metadata={
+                    "new_item_ids": ["a", "b", "c"],
+                    "source_query_plans": [
+                        {"source_name": "osv_dev_api", "params": osv_params},
+                        {"source_name": "nvd_cve_api", "params": nvd_params},
+                    ],
+                },
+            )
+        ]
+        rows = {row["signature"]: row for row in rules.operator_outcomes(blackboard)}
+        self.assertAlmostEqual(rows["osv:package"]["new_relevant_per_call"], 2.0)
+        self.assertEqual(rows["osv:package"]["noise"], 0.0)
+        self.assertAlmostEqual(rows["nvd:keyword"]["new_relevant_per_call"], 0.0)
+        self.assertEqual(rows["nvd:keyword"]["noise"], 1.0)
+        # best signature ranks first
+        self.assertEqual(rules.operator_outcomes(blackboard)[0]["signature"], "osv:package")
+
     def test_merge_batch_records_target_topics_for_bandit(self) -> None:
         blackboard = IntelRunBlackboard(run_id="t", run_goal="g")
         plan = SearchQueryPlan(

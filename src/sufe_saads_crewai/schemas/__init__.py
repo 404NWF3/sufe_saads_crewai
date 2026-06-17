@@ -79,6 +79,8 @@ from .persistence import (
 from .runtime import IntelRunBlackboard, RunBudget, RunMetrics
 from .sdk_decisions import (
     CollectionPlanDecision,
+    PlanCritiqueDecision,
+    ProposalVerdict,
     SearchQueryProposal,
     SourceSelectionDecision,
 )
@@ -105,6 +107,8 @@ __all__ = [
     "BomResolution",
     "BomResolutionBatch",
     "CollectionPlanDecision",
+    "PlanCritiqueDecision",
+    "ProposalVerdict",
     "CollectionYieldAssessment",
     "CollectionBatchOutput",
     "CollectedItem",

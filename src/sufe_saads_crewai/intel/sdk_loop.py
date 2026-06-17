@@ -8,9 +8,17 @@ engine uses, so behavior never drops below the current baseline.
 
 Migrated decision points:
 - source selection  (bandit recommendation + agent veto, roadmap 6.1)
-- collection plan   (free-form queries + typed advanced operators, 6.2/6.3)
+- collection plan   (gap-directed free-form queries + typed advanced operators,
+                     seeded by per-operator outcome memory; 6.2/6.3)
+- plan critique     (self-review that drops redundant queries and injects
+                     gap-targeted ones before execution)
 - query rewrite     (replaces template-based gap rewrite)
-- termination       (marginal-yield critic with min/max round safety valves, 6.4)
+- termination       (coverage gate + marginal-information stall, min/max valves)
+
+Decisions are grounded in an outcome digest: per-operator effectiveness and
+best/worst past queries, plus a cross-run StrategyMemory of which operator
+signatures historically paid off. Every new decision falls back to prior
+behavior on failure, preserving the three-layer fallback contract.
 
 Output conventions are unchanged: blackboard schema, run file layout, and the
 ``real-`` run-id prefix all match the rules engine; the engine marks itself in
@@ -32,6 +40,7 @@ from sufe_saads_crewai.schemas import (
     CompletenessDecisionOutput,
     ErrorRecord,
     IntelRunBlackboard,
+    PlanCritiqueDecision,
     RawIntelItemBatch,
     RewriteDecisionOutput,
     RunBudget,
@@ -51,6 +60,7 @@ from sufe_saads_crewai.intel.bandit import SourceBandit, topic_bucket
 from sufe_saads_crewai.intel.context import render_round_context
 from sufe_saads_crewai.intel.relevance import RelevancePipeline
 from sufe_saads_crewai.intel.rules import SourceQuerySpec
+from sufe_saads_crewai.intel.strategy_memory import StrategyMemory, strategy_memory_enabled
 
 SYSTEM_PROMPT = (
     "You are the planning brain of an LLM-security intelligence collection loop. "
@@ -114,6 +124,10 @@ class SdkIntelRunController:
         coverage_quota: int | None = None,
         stall_patience: int | None = None,
         min_new_relevant_per_call: float | None = None,
+        strategy_memory: StrategyMemory | None | str = "default",
+        critic_enabled: bool | None = None,
+        critic_on_gaps_only: bool | None = None,
+        plan_augment: bool | None = None,
     ) -> None:
         self.run_goal = run_goal
         self.initial_query = initial_query
@@ -142,6 +156,38 @@ class SdkIntelRunController:
             if min_new_relevant_per_call is not None
             else rules.min_new_relevant_per_call()
         )
+        if strategy_memory == "default":
+            self.strategy_memory: StrategyMemory | None = (
+                StrategyMemory() if strategy_memory_enabled() else None
+            )
+        else:
+            self.strategy_memory = strategy_memory
+        self.critic_enabled = (
+            critic_enabled
+            if critic_enabled is not None
+            else os.getenv("INTEL_CRITIC_ENABLED", "1").strip().lower()
+            not in {"0", "false", "no", "off"}
+        )
+        # The critic is the largest reliability cost and its unique value (gap
+        # injection) only applies when coverage is incomplete, so by default it
+        # runs only on rounds with an open quota gap.
+        self.critic_on_gaps_only = (
+            critic_on_gaps_only
+            if critic_on_gaps_only is not None
+            else os.getenv("INTEL_CRITIC_ON_GAPS_ONLY", "1").strip().lower()
+            not in {"0", "false", "no", "off"}
+        )
+        # Diagnosis (IJA): when the agent's plan *replaces* the deterministic
+        # template it narrows to one source and re-treads it (dup ratio 30-70%).
+        # In augment mode the broad template sweep is the floor and agent
+        # proposals are added on top, so the agent can only help, not narrow.
+        self.plan_augment = (
+            plan_augment
+            if plan_augment is not None
+            else os.getenv("INTEL_PLAN_AUGMENT", "1").strip().lower()
+            not in {"0", "false", "no", "off"}
+        )
+        self.agent_addition_cap = _env_int("INTEL_AGENT_ADDITION_CAP", 5)
         self.raw_item_batches: list[RawIntelItemBatch] = []
         self._executed_source_query_keys: set[str] = set()
         self._latest_semantic_expansion: SearchSemanticExpansionOutput | None = None
@@ -179,6 +225,8 @@ class SdkIntelRunController:
         self._persist(blackboard, status="succeeded")
         if self.bandit is not None:
             self.bandit.save()
+        if self.strategy_memory is not None:
+            self.strategy_memory.save()
         return blackboard
 
     # ------------------------------------------------------------------ rounds
@@ -197,15 +245,7 @@ class SdkIntelRunController:
             [gap.taxonomy_or_component for gap in blackboard.coverage_gaps]
             or query_plan.target_topics
         )
-        context_digest = render_round_context(
-            blackboard,
-            round_index,
-            self.max_rounds,
-            bandit_summary=(
-                self.bandit.render_summary(bucket) if self.bandit is not None else None
-            ),
-            info_gain=self._latest_info_gain(blackboard),
-        )
+        context_digest = self._render_digest(blackboard, round_index, bucket)
 
         selected_sources = self._decide_sources(blackboard, query_plan, bucket, context_digest)
         query_plan.source_names = selected_sources
@@ -230,6 +270,12 @@ class SdkIntelRunController:
 
         if self.bandit is not None and blackboard.query_history:
             self.bandit.update_from_history_entry(blackboard.query_history[-1])
+
+        if self.strategy_memory is not None and blackboard.query_history:
+            item_index = {item.item_id: item for item in blackboard.raw_items}
+            self.strategy_memory.update_from_history_entry(
+                blackboard.query_history[-1], item_index
+            )
 
         if self.relevance_pipeline is not None and latest_batch.items:
             new_ids = set(blackboard.query_history[-1].metadata.get("new_item_ids") or [])
@@ -262,15 +308,7 @@ class SdkIntelRunController:
                 )
             )
 
-        post_context = render_round_context(
-            blackboard,
-            round_index,
-            self.max_rounds,
-            bandit_summary=(
-                self.bandit.render_summary(bucket) if self.bandit is not None else None
-            ),
-            info_gain=self._latest_info_gain(blackboard),
-        )
+        post_context = self._render_digest(blackboard, round_index, bucket)
         reflection = self._decide_rewrite(blackboard, gap_analysis, post_context)
         if reflection.rewritten_queries:
             blackboard.reflection_notes.append(reflection)
@@ -444,36 +482,208 @@ class SdkIntelRunController:
         query_plan: SearchQueryPlan,
         context_digest: str,
     ) -> list[SourceQuerySpec]:
+        open_gaps = rules.quota_open_gaps(
+            blackboard.raw_items, self.target_topics, self.coverage_quota
+        )
+        # The broad deterministic template sweep is the breadth floor.
+        base_specs = rules.build_source_query_specs(
+            blackboard,
+            query_plan,
+            self.target_topics,
+            self.max_results_per_round,
+            self._executed_source_query_keys,
+            self._latest_semantic_expansion,
+        )
+        gap_block = self._gap_hint_block(open_gaps, query_plan.source_names)
+        role = (
+            "A broad multi-source baseline sweep already runs this round. Propose "
+            "1-5 ADDITIONAL targeted queries that the baseline would miss"
+            if self.plan_augment
+            else "Propose 2-6 source-specific search queries for this round"
+        )
         prompt = (
             f"{context_digest}\n\n"
             f"Selected sources for this round: {query_plan.source_names}\n"
             f"Current mission query: {query_plan.query_text}\n\n"
             f"{PROPOSAL_GUIDE}\n\n"
-            "Propose 2-6 source-specific search queries for this round. Write new "
-            "query text freely (do not repeat earlier queries from the digest); "
-            "use advanced params whenever they cut noise. Each proposal needs "
-            "source_name, query_text, params, and a short rationale."
+            f"{gap_block}"
+            f"{role}. Write new query text freely (do not repeat earlier queries "
+            "from the digest); spread across sources rather than one; prefer the "
+            "operator combinations the digest shows worked (high new_rel/call, low "
+            "noise). Each proposal needs source_name, query_text, params, rationale."
         )
         decision = self.decision_engine.decide(
             "collection_plan", prompt, CollectionPlanDecision, system_prompt=SYSTEM_PROMPT
         )
-        specs = self._specs_from_proposals(decision, query_plan) if decision else []
-        if not specs:
-            if decision is not None:
-                self._record_fallback(
-                    blackboard, "collection_plan", "no valid proposals after validation"
-                )
-            else:
-                self._record_fallback(blackboard, "collection_plan", "decision failed")
-            return rules.build_source_query_specs(
-                blackboard,
-                query_plan,
-                self.target_topics,
-                self.max_results_per_round,
-                self._executed_source_query_keys,
-                self._latest_semantic_expansion,
+        agent_specs = self._specs_from_proposals(decision, query_plan) if decision else []
+        if decision is None:
+            self._record_fallback(blackboard, "collection_plan", "decision failed")
+        elif not agent_specs:
+            self._record_fallback(
+                blackboard, "collection_plan", "no valid proposals after validation"
             )
+
+        if self.plan_augment:
+            # Editor model: template breadth + the agent's (deduped) additions.
+            specs = self._merge_agent_and_base(agent_specs, base_specs)
+        else:
+            specs = agent_specs or base_specs
+
+        if not specs:
+            return base_specs
+        # Critic is the largest reliability cost; by default run it only when a
+        # target topic is still under quota (where its gap injection earns its keep).
+        if open_gaps or not self.critic_on_gaps_only:
+            specs = self._critique_plan(blackboard, query_plan, specs, open_gaps, context_digest)
         return specs
+
+    def _merge_agent_and_base(
+        self,
+        agent_specs: list[SourceQuerySpec],
+        base_specs: list[SourceQuerySpec],
+    ) -> list[SourceQuerySpec]:
+        """Augment model: keep the agent's targeted additions (capped) on top of
+        the full template sweep, deduped, so breadth is never lost."""
+        merged: list[SourceQuerySpec] = []
+        seen: set[str] = set()
+        ordered = list(agent_specs[: self.agent_addition_cap]) + list(base_specs)
+        for spec in ordered:
+            key = rules.source_query_key(spec)
+            if key in seen or key in self._executed_source_query_keys:
+                continue
+            seen.add(key)
+            merged.append(spec)
+        return merged
+
+    def _gap_hint_block(self, open_gaps: list[str], source_names: list[str]) -> str:
+        """Per-gap source/operator suggestions (reuses the deterministic
+        semantic-expansion mapping) so the agent can target sparse topics."""
+        if not open_gaps:
+            return ""
+        lines = [
+            "Target topics still BELOW quota -- dedicate at least one query to EACH: "
+            f"{open_gaps}",
+            "Per-gap source/operator hints:",
+        ]
+        for topic in open_gaps[:4]:
+            expansion = rules.fallback_semantic_gap_expansion(topic)
+            for source_terms in expansion.source_specific_terms:
+                if source_terms.source_name in source_names and source_terms.positive_terms:
+                    terms = ", ".join(source_terms.positive_terms[:5])
+                    lines.append(f"- {topic} via {source_terms.source_name}: {terms}")
+        return "\n".join(lines) + "\n\n"
+
+    def _critique_plan(
+        self,
+        blackboard: IntelRunBlackboard,
+        query_plan: SearchQueryPlan,
+        specs: list[SourceQuerySpec],
+        open_gaps: list[str],
+        context_digest: str,
+    ) -> list[SourceQuerySpec]:
+        """Lightweight self-critique (plan WS2): drop redundant/noisy proposals
+        and inject gap-targeted queries for any open topic the plan misses."""
+        if not self.critic_enabled or not specs:
+            return specs
+        listing = "\n".join(
+            f"{index}. [{spec.source_name}] {spec.query_text} params="
+            f"{json.dumps(spec.params, ensure_ascii=False)}"
+            for index, spec in enumerate(specs)
+        )
+        prompt = (
+            f"{context_digest}\n\n"
+            f"Proposed queries this round:\n{listing}\n\n"
+            f"Target topics still below quota: {open_gaps}\n\n"
+            "Critique this plan. For each proposal index return action "
+            "keep|drop|refine (drop if it repeats a past query in the digest or is "
+            "likely high-noise). Set uncovered_gaps to the open topics no proposal "
+            "addresses. Be terse."
+        )
+        decision = self.decision_engine.decide(
+            "plan_critique",
+            prompt,
+            PlanCritiqueDecision,
+            system_prompt=SYSTEM_PROMPT,
+            fast=True,
+        )
+        if decision is None:
+            self._record_fallback(blackboard, "plan_critique", "decision failed")
+            return specs
+
+        dropped = {
+            verdict.index
+            for verdict in decision.verdicts
+            if verdict.action.strip().lower() == "drop"
+        }
+        # Only agent additions may be dropped; the deterministic template sweep is
+        # the breadth floor and is never pruned by the critic (augment model).
+        kept = [
+            spec
+            for index, spec in enumerate(specs)
+            if not (index in dropped and spec.strategy_name == "sdk_agent_proposal")
+        ]
+        if not kept:  # never drop the whole plan
+            kept = specs
+
+        # Inject gap-targeted specs for open topics the critic flagged as uncovered.
+        uncovered = [topic for topic in decision.uncovered_gaps if topic in open_gaps]
+        if uncovered:
+            kept = self._inject_gap_specs(blackboard, query_plan, kept, uncovered)
+        blackboard.action_history.append(
+            ActionDecision(
+                action_type="REFLECT_SEARCH_STRATEGY",
+                priority="low",
+                rationale=f"Plan critique: dropped {len(dropped)}, uncovered={uncovered}.",
+                expected_gain="Prune redundant queries, target open gaps.",
+                required_context=[spec.query_text for spec in kept],
+            )
+        )
+        return kept
+
+    def _inject_gap_specs(
+        self,
+        blackboard: IntelRunBlackboard,
+        query_plan: SearchQueryPlan,
+        kept: list[SourceQuerySpec],
+        uncovered: list[str],
+    ) -> list[SourceQuerySpec]:
+        existing_keys = {rules.source_query_key(spec) for spec in kept}
+        gap_plan = SearchQueryPlan(
+            query_text=query_plan.query_text,
+            source_names=query_plan.source_names,
+            target_topics=uncovered,
+            query_intent="gap_fill",
+            max_results=self.max_results_per_round,
+            priority="high",
+            round_index=query_plan.round_index,
+        )
+        candidates = rules.build_source_query_specs(
+            blackboard,
+            gap_plan,
+            uncovered,
+            self.max_results_per_round,
+            self._executed_source_query_keys,
+            self._latest_semantic_expansion,
+        )
+        added = 0
+        for spec in candidates:
+            if added >= 2:
+                break
+            spec = SourceQuerySpec(
+                source_name=spec.source_name,
+                query_text=spec.query_text,
+                target_topics=spec.target_topics,
+                max_results=spec.max_results,
+                strategy_name="sdk_critic_gap_fill",
+                params=spec.params,
+            )
+            key = rules.source_query_key(spec)
+            if key in existing_keys:
+                continue
+            kept.append(spec)
+            existing_keys.add(key)
+            added += 1
+        return kept
 
     def _specs_from_proposals(
         self,
@@ -709,6 +919,28 @@ class SdkIntelRunController:
             return None
         item_index = {item.item_id: item for item in blackboard.raw_items}
         return rules.round_information_gain(blackboard.query_history[-1], item_index)
+
+    def _render_digest(
+        self,
+        blackboard: IntelRunBlackboard,
+        round_index: int,
+        bucket: str,
+    ) -> str:
+        """Compact decision context: metrics + outcome-grounded operator/query
+        signals (plan WS1) and cross-run memory (WS3)."""
+        return render_round_context(
+            blackboard,
+            round_index,
+            self.max_rounds,
+            bandit_summary=(
+                self.bandit.render_summary(bucket) if self.bandit is not None else None
+            ),
+            info_gain=self._latest_info_gain(blackboard),
+            operator_outcomes=rules.operator_outcomes(
+                blackboard, memory=self.strategy_memory, bucket=bucket
+            ),
+            query_outcomes=rules.per_query_outcomes(blackboard),
+        )
 
     def _marginal_yield_features(self, blackboard: IntelRunBlackboard) -> dict[str, Any]:
         history = blackboard.query_history

@@ -24,9 +24,57 @@ from typing import Any
 
 from sufe_saads_crewai.intel import rules
 from sufe_saads_crewai.intel.bandit import SourceBandit
+from sufe_saads_crewai.intel.strategy_memory import StrategyMemory
 from sufe_saads_crewai.intel.engine import create_intel_controller
 from sufe_saads_crewai.persistence import JsonIntelRunStore
 from sufe_saads_crewai.topic_utils import TARGET_SECURITY_TOPICS
+
+
+async def _fallback_only_runner(prompt, schema, system_prompt, model, max_turns):
+    """Decision runner that always declines, so every decision takes the shared
+    deterministic rule. Used by the ``rules_gate`` ablation: sdk round skeleton +
+    coverage/stall valves + relevance, but no LLM decisions (no API spend)."""
+    return None
+
+
+def build_controller(engine: str, goal: dict[str, Any], store: JsonIntelRunStore) -> Any:
+    """Construct the controller for an engine name.
+
+    - ``rules``      : deterministic baseline (no depth-quota gate).
+    - ``rules_gate`` : sdk controller with all decisions forced to fallback
+                       (isolates the coverage gate + stall + relevance).
+    - ``sdk``        : full agentic engine (gate + LLM decisions + memory).
+    """
+    common = dict(
+        run_goal=goal["run_goal"],
+        initial_query=goal["initial_query"],
+        max_rounds=goal["max_rounds"],
+        max_results_per_round=goal["max_results_per_round"],
+        run_store=store,
+        target_topics=goal.get("target_topics"),
+    )
+    if engine == "rules_gate":
+        from sufe_saads_crewai.intel.sdk_loop import SdkIntelRunController
+        from sufe_saads_crewai.agent_runtime.structured import StructuredDecisionEngine
+
+        return SdkIntelRunController(
+            **common,
+            decision_engine=StructuredDecisionEngine(
+                model="rules-gate", fast_model="rules-gate", runner=_fallback_only_runner
+            ),
+            bandit=SourceBandit(state_path=None),
+            strategy_memory=None,
+            critic_enabled=False,
+        )
+    engine_kwargs = (
+        {
+            "bandit": SourceBandit(state_path=None),
+            "strategy_memory": StrategyMemory(state_path=None),
+        }
+        if engine == "sdk"
+        else {}
+    )
+    return create_intel_controller(**common, engine=engine, **engine_kwargs)
 
 
 # Plain keyword params; anything beyond these marks an advanced-operator call
@@ -106,6 +154,81 @@ def stop_reason(blackboard: Any) -> tuple[str, bool]:
     return "coverage_or_yield", False
 
 
+_BASIC_SIGNATURES = {"nvd:keyword", "nvd:other", "arxiv:plain", "cisa:keyword", "osv:other"}
+
+
+def coverage_trajectory(blackboard: Any, target: list[str], quota: int) -> dict[str, Any]:
+    """Attribution proxies (plan WS-eval): how fast coverage was reached and how
+    effectively open gaps were filled. Reconstructed from the per-round
+    new_item_ids, so it is engine-agnostic and needs no human labels."""
+    item_index = {item.item_id: item for item in blackboard.raw_items}
+    target_set = set(target)
+    accumulated: list[Any] = []
+    seen: set[str] = set()
+    rounds_to_cover: int | None = None
+    calls_to_cover = 0
+    calls_so_far = 0
+    gap_new_relevant = 0
+    gap_calls = 0
+    for position, entry in enumerate(blackboard.query_history, start=1):
+        gaps_before = set(rules.quota_open_gaps(accumulated, target, quota))
+        calls_this = rules.round_call_count(entry)
+        calls_so_far += calls_this
+        round_items = [
+            item_index[item_id]
+            for item_id in (entry.metadata.get("new_item_ids") or [])
+            if item_id in item_index
+        ]
+        if gaps_before:
+            gap_calls += calls_this
+            for item in round_items:
+                if rules.item_is_relevant(item) and rules.item_target_topic(item, target_set) in gaps_before:
+                    gap_new_relevant += 1
+        for item in round_items:
+            if item.item_id not in seen:
+                seen.add(item.item_id)
+                accumulated.append(item)
+        if rounds_to_cover is None and rules.coverage_completeness(accumulated, target, quota) >= 0.999:
+            rounds_to_cover = position
+            calls_to_cover = calls_so_far
+    reached = rounds_to_cover is not None
+    return {
+        "reached_full_coverage": reached,
+        "rounds_to_full_coverage": rounds_to_cover if reached else len(blackboard.query_history),
+        "calls_to_full_coverage": calls_to_cover if reached else blackboard.metrics.api_calls_used,
+        "gap_fill_efficiency": round(gap_new_relevant / gap_calls, 4) if gap_calls else 0.0,
+    }
+
+
+def operator_precision(blackboard: Any) -> dict[str, Any]:
+    """Noise of advanced-operator calls vs basic keyword calls (does smarter
+    operator use actually pull cleaner items?)."""
+    adv_items = adv_rel = basic_items = basic_rel = 0
+    for item in blackboard.raw_items:
+        sig = rules.operator_signature(item.source_name, item.metadata.get("source_query_params") or {})
+        relevant = rules.item_is_relevant(item)
+        if sig in _BASIC_SIGNATURES:
+            basic_items += 1
+            basic_rel += 1 if relevant else 0
+        else:
+            adv_items += 1
+            adv_rel += 1 if relevant else 0
+    adv_noise = round(1 - adv_rel / adv_items, 4) if adv_items else None
+    basic_noise = round(1 - basic_rel / basic_items, 4) if basic_items else None
+    reduction = (
+        round(basic_noise - adv_noise, 4)
+        if adv_noise is not None and basic_noise is not None
+        else None
+    )
+    return {
+        "advanced_noise": adv_noise,
+        "basic_noise": basic_noise,
+        "noise_reduction": reduction,
+        "advanced_items": adv_items,
+        "basic_items": basic_items,
+    }
+
+
 def run_metrics(blackboard: Any, target_topics: list[str] | None = None) -> dict[str, Any]:
     raw_items = blackboard.raw_items
     api_calls = max(1, blackboard.metrics.api_calls_used)
@@ -131,6 +254,8 @@ def run_metrics(blackboard: Any, target_topics: list[str] | None = None) -> dict
         else 0.0
     )
     reason, stopped_by_stall = stop_reason(blackboard)
+    trajectory = coverage_trajectory(blackboard, target, quota)
+    op_precision = operator_precision(blackboard)
     telemetry = getattr(blackboard, "engine_telemetry", None) or {}
     decisions = telemetry.get("decisions", {})
     return {
@@ -152,6 +277,13 @@ def run_metrics(blackboard: Any, target_topics: list[str] | None = None) -> dict
         "new_relevant_per_call_mean": new_relevant_per_call_mean,
         "stopped_by_stall": stopped_by_stall,
         "stop_reason": reason,
+        # Intelligence-attribution proxies (plan WS-eval): gate held constant, so
+        # before/after deltas attribute to the agent decision layer.
+        "reached_full_coverage": trajectory["reached_full_coverage"],
+        "rounds_to_full_coverage": trajectory["rounds_to_full_coverage"],
+        "calls_to_full_coverage": trajectory["calls_to_full_coverage"],
+        "gap_fill_efficiency": trajectory["gap_fill_efficiency"],
+        "operator_precision": op_precision,
         "novelty_curve": novelty_curve,
         "topics_covered": sorted(covered),
         "open_gaps": [gap.taxonomy_or_component for gap in blackboard.coverage_gaps],
@@ -191,12 +323,24 @@ def aggregate(samples: list[dict[str, Any]]) -> dict[str, Any]:
             stop_reason_counts.get(sample["stop_reason"], 0) + 1
         )
 
+    def opt_mean(values: list[Any]) -> float | None:
+        present = [float(v) for v in values if v is not None]
+        return round(statistics.mean(present), 4) if present else None
+
     return {
         "n": len(samples),
         "coverage_completeness": stat("coverage_completeness"),
         "new_relevant_per_call": stat("new_relevant_per_call_mean"),
         "stall_rate": rate("stopped_by_stall"),
         "stop_reasons": stop_reason_counts,
+        # Attribution proxies (held-gate before/after).
+        "rounds_to_full_coverage": stat("rounds_to_full_coverage"),
+        "calls_to_full_coverage": stat("calls_to_full_coverage"),
+        "reached_full_coverage_rate": rate("reached_full_coverage"),
+        "gap_fill_efficiency": stat("gap_fill_efficiency"),
+        "operator_noise_reduction": {
+            "mean": opt_mean([s["operator_precision"]["noise_reduction"] for s in samples])
+        },
         "relevant_per_call": stat("relevant_per_call"),
         "items_per_call": stat("items_per_call"),
         "relevant_items": stat("relevant_items"),
@@ -254,22 +398,9 @@ def main() -> None:
             for repeat in range(repeats):
                 store = JsonIntelRunStore(out_dir / goal["goal_id"] / engine)
                 started = time.perf_counter()
-                # Isolate the bandit per repeat so repeats are independent samples
-                # (the persistent state file otherwise leaks learning across runs
-                # and confounds the measured variance). Ignored by the rules engine.
-                engine_kwargs = (
-                    {"bandit": SourceBandit(state_path=None)} if engine == "sdk" else {}
-                )
-                controller = create_intel_controller(
-                    run_goal=goal["run_goal"],
-                    initial_query=goal["initial_query"],
-                    max_rounds=goal["max_rounds"],
-                    max_results_per_round=goal["max_results_per_round"],
-                    run_store=store,
-                    target_topics=goal.get("target_topics"),
-                    engine=engine,
-                    **engine_kwargs,
-                )
+                # Per-repeat isolation of bandit/strategy state (engine kwargs)
+                # happens inside build_controller; repeats stay independent.
+                controller = build_controller(engine, goal, store)
                 blackboard = controller.run()
                 metrics = run_metrics(blackboard, goal.get("target_topics"))
                 metrics["run_id"] = blackboard.run_id
@@ -297,8 +428,9 @@ def main() -> None:
             line.append(
                 f"{engine}: coverage={agg['coverage_completeness']['mean']}"
                 f"(sd{agg['coverage_completeness']['stdev']}) "
-                f"new_rel/call={agg['new_relevant_per_call']['mean']} "
-                f"stall_rate={agg['stall_rate']} "
+                f"rounds2cov={agg['rounds_to_full_coverage']['mean']} "
+                f"gap_fill={agg['gap_fill_efficiency']['mean']} "
+                f"op_noise_red={agg['operator_noise_reduction']['mean']} "
                 f"relevant/call={agg['relevant_per_call']['mean']}"
                 f"(sd{agg['relevant_per_call']['stdev']})"
             )

@@ -36,3 +36,24 @@ class SearchQueryProposal(StrictSdkDecision):
 class CollectionPlanDecision(StrictSdkDecision):
     proposals: list[SearchQueryProposal]
     rationale: str
+
+
+class ProposalVerdict(StrictSdkDecision):
+    """Critic verdict on one proposed query (by its index in the plan)."""
+
+    index: int
+    action: str = Field(description="keep | drop | refine")
+    reason: str = ""
+
+
+class PlanCritiqueDecision(StrictSdkDecision):
+    """Self-critique of a collection plan before execution (plan WS2).
+
+    The critic flags redundant or likely-noisy proposals and names any open
+    target topics the plan fails to address, so the controller can drop weak
+    queries and inject gap-targeted ones.
+    """
+
+    verdicts: list[ProposalVerdict] = Field(default_factory=list)
+    uncovered_gaps: list[str] = Field(default_factory=list)
+    rationale: str = ""

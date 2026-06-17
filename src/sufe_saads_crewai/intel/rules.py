@@ -11,6 +11,7 @@ from dataclasses import dataclass
 import hashlib
 import json
 import os
+import re
 from typing import Any
 
 from sufe_saads_crewai.topic_utils import build_gap_query, detect_topics
@@ -278,6 +279,131 @@ def is_search_stalled(
         round_information_gain(entry, item_index)["new_relevant_per_call"] < min_yield
         for entry in history[-patience:]
     )
+
+
+# ---------------------------------------------------------------- operator outcomes
+# "What actually worked" signal for the agent: which source + advanced-operator
+# combinations produced new relevant items cheaply, and which were noisy. Item
+# attribution is exact because every collected item carries its
+# ``source_query_params`` (set in sdk_loop._execute_specs); call attribution
+# comes from the per-round ``source_query_plans``.
+
+_NVD_ADV_KEYS = {
+    "nvd_cwe_id": "cwe",
+    "nvd_cvss_v3_severity": "cvss",
+    "nvd_pub_start_date": "date",
+    "nvd_has_kev": "kev",
+    "nvd_keyword_exact_match": "exact",
+}
+_ARXIV_CAT = re.compile(r"\bcat:")
+_ARXIV_BOOL = re.compile(r"\b(?:AND|OR|ANDNOT)\b")
+
+
+def operator_signature(source_name: str, params: dict[str, Any] | None) -> str:
+    """Canonical descriptor of the advanced-operator combination used, e.g.
+    ``nvd:keyword+cwe``, ``arxiv:cat+phrase``, ``osv:package``, ``cisa:keyword``."""
+    clean = {
+        key: value
+        for key, value in (params or {}).items()
+        if value not in (None, "", [], {}, False)
+    }
+    if source_name == "nvd_cve_api":
+        if clean.get("nvd_cve_id"):
+            return "nvd:cve"
+        extras = [tag for key, tag in _NVD_ADV_KEYS.items() if key in clean]
+        base = "nvd:keyword" if clean.get("nvd_keyword_search") else "nvd:other"
+        return base + "".join(f"+{tag}" for tag in extras)
+    if source_name == "arxiv_api":
+        query = str(clean.get("arxiv_search_query") or "")
+        tags: list[str] = []
+        if _ARXIV_CAT.search(query):
+            tags.append("cat")
+        if _ARXIV_BOOL.search(query):
+            tags.append("bool")
+        if '"' in query:
+            tags.append("phrase")
+        return "arxiv:" + ("+".join(tags) if tags else "plain")
+    if source_name == "osv_dev_api":
+        if clean.get("osv_vuln_id"):
+            return "osv:vuln"
+        if clean.get("osv_purl"):
+            return "osv:purl"
+        if clean.get("osv_package_name"):
+            return "osv:package"
+        return "osv:other"
+    if source_name == "cisa_kev_json":
+        return "cisa:cve" if clean.get("cisa_cve_ids") else "cisa:keyword"
+    return f"{source_name}:other"
+
+
+def query_signatures_for_entry(entry: QueryHistoryEntry) -> list[str]:
+    sigs = [
+        operator_signature(str(plan.get("source_name", "")), plan.get("params") or {})
+        for plan in (entry.metadata.get("source_query_plans") or [])
+    ]
+    return dedupe_preserve_order(sigs)
+
+
+def per_query_outcomes(blackboard: IntelRunBlackboard) -> list[dict[str, Any]]:
+    """Per-round outcome rows for in-context exemplars (best/worst queries)."""
+    item_index = {item.item_id: item for item in blackboard.raw_items}
+    rows: list[dict[str, Any]] = []
+    for entry in blackboard.query_history:
+        gain = round_information_gain(entry, item_index)
+        rows.append(
+            {
+                "round": entry.round_index,
+                "query": entry.query_text,
+                "new_relevant_per_call": gain["new_relevant_per_call"],
+                "noise": round(entry.noise_ratio, 3),
+                "duplicate": round(entry.duplicate_ratio, 3),
+                "signatures": query_signatures_for_entry(entry),
+            }
+        )
+    return rows
+
+
+def operator_outcomes(
+    blackboard: IntelRunBlackboard,
+    memory: Any | None = None,
+    bucket: str | None = None,
+) -> list[dict[str, Any]]:
+    """Per-operator-signature effectiveness, sorted by new-relevant-per-call.
+
+    Items are attributed to a signature via their ``source_query_params``; calls
+    via ``source_query_plans``. When a cross-run ``memory`` is supplied, each row
+    also carries its historical mean reward for the topic bucket.
+    """
+    stats: dict[str, dict[str, int]] = {}
+    for item in blackboard.raw_items:
+        sig = operator_signature(item.source_name, item.metadata.get("source_query_params") or {})
+        row = stats.setdefault(sig, {"items": 0, "relevant": 0})
+        row["items"] += 1
+        if item_is_relevant(item):
+            row["relevant"] += 1
+
+    calls: dict[str, int] = {}
+    for entry in blackboard.query_history:
+        for plan in entry.metadata.get("source_query_plans") or []:
+            sig = operator_signature(str(plan.get("source_name", "")), plan.get("params") or {})
+            calls[sig] = calls.get(sig, 0) + 1
+
+    rows: list[dict[str, Any]] = []
+    for sig, stat in stats.items():
+        call_count = calls.get(sig, 0)
+        row = {
+            "signature": sig,
+            "items": stat["items"],
+            "relevant": stat["relevant"],
+            "calls": call_count,
+            "new_relevant_per_call": round(stat["relevant"] / max(1, call_count), 3),
+            "noise": round(1 - stat["relevant"] / stat["items"], 3) if stat["items"] else 0.0,
+        }
+        if memory is not None and bucket is not None:
+            row["hist_mean"] = round(memory.mean_reward(bucket, sig), 3)
+        rows.append(row)
+    rows.sort(key=lambda r: r["new_relevant_per_call"], reverse=True)
+    return rows
 
 
 def semantic_terms_for_source(
