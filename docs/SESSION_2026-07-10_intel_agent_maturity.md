@@ -112,14 +112,17 @@ docker compose run --rm intel-agent latest
 
 | 想看什么 | 去哪里 |
 |---|---|
-| 最近一次采集摘要 | `uv run intel-agent latest` 或 Mongo `runs` 最新文档 |
-| 全量 255 条情报与话题 | `data/intel_runs/<run_id>.json` → `blackboard.raw_items`，或 Mongo `items` |
-| Agent loop / 工具调用 | 加 `--verbose` 或读 `data/intel_agent/traces/<run_id>.jsonl` |
+| 最近一次采集摘要 | `uv run intel-agent latest`；Gradio Collect → Load latest；Mongo `runs` 最新文档 |
+| 全量情报与话题 | Mongo `items`；或 `data/intel_runs/<run_id>.json` → `blackboard.raw_items` |
+| Agent loop / 工具调用 | Gradio Collect 实时轨迹；或 `data/intel_agent/traces/<run_id>.jsonl` |
 | 沉淀的检索技巧 | `data/intel_agent/playbook.jsonl` |
-| 全局去重情报库 | Mongo `intel_agent.items`（DBeaver：`localhost:27017`，库 `intel_agent`，无鉴权） |
-| 每次任务完整黑板 | Mongo `intel_agent.runs` |
+| 全局去重情报库 | Mongo `intel_agent.items`；Gradio **Database** |
+| 每次任务完整黑板 | Mongo `intel_agent.runs`；Database → Run detail |
+| CSV 导出 | Gradio Database 下载；或宿主机 `mongoexport` → `data/exports/` |
 
 **连接 MongoDB（DBeaver）**：Host `localhost`，Port `27017`，Database `intel_agent`，Authentication `None`。容器内互连用 `mongodb://mongo:27017`。
+
+**注意**：`mongoexport` / `docker exec` 必须在**宿主机** shell 执行；`mongosh>` 提示符里只能写 JS。
 
 ---
 
@@ -127,29 +130,31 @@ docker compose run --rm intel-agent latest
 
 ### 4.1 文档与设计
 
-- [ ] `docs/intel_agent_design.md`（详细架构设计稿，上一轮计划未写）
+- [ ] `docs/intel_agent_design.md`（详细架构设计稿）
 - [ ] `docs/INTEL_AGENT_SDK_ROADMAP.md` Phase 4 章节更新
-- [ ] `docs/PROJECT_PROGRESS.md` 全面改写（仍停留在 2026-06-13 旧 CrewAI 主线描述）
+- [x] `docs/PROJECT_PROGRESS.md` 补充 2026-07 统一交付进展（见 §7）
 
 ### 4.2 工程与质量
 
-- [ ] 用户本地确认 `29 passed`（Mongo 单测加入后；助手环境 pytest 偶发卡死）
-- [ ] `agent-sdk-verifier-py` 运行时审查（静态已完成）
-- [ ] `code-simplifier` 子 agent 跑一轮简化
+- [x] 离线单测绿（intel_agent + ctinexus_kg + console db_browser）
+- [ ] `agent-sdk-verifier-py` 运行时审查
 - [ ] MongoDB **鉴权**（生产/外网暴露时建议加 `MONGO_INITDB_ROOT_*`）
 
 ### 4.3 功能集成
 
-- [ ] **Gradio Web** 读路径仍指向 JSON `latest.json`，未接 Mongo `default_store()`——Web 上看不到仅落 Mongo 的运行
-- [ ] `scripts/eval_ab.py`：新引擎 vs 旧 `sdk_loop` A/B
-- [ ] incremental watermark 在 Mongo-only 模式下的 watermark 来源（当前 `load_all_blackboards` 已支持 Mongo，需端到端验证）
-- [ ] 删除或归档 legacy `src/sufe_saads_crewai/intel/`（用户长期目标：后端只留 `backend/intel_agent`）
+- [x] Gradio 接 `default_store()`（Collect / Database）
+- [x] Gradio Database 面板 + CSV
+- [x] `ctinexus_kg` 自包含 + console KG 页签
+- [x] Docker `IS_SANDBOX=1`（root 下 Claude Code bypassPermissions）
+- [ ] `scripts/eval_ab.py`：新引擎 vs 旧引擎 A/B
+- [ ] incremental watermark 在 Mongo-only 模式下的端到端验证
+- [ ] 删除或归档 legacy `src/`（若分支仍保留）
 
-### 4.4 路线图（CLAUDE.md 方向一/二，未在本轮实现）
+### 4.4 路线图（CLAUDE.md 方向一/二）
 
-- [ ] 源选择 / 检索词 / 高级算子 / 轮次 **自主决策**深化（当前已有 agent loop + playbook，但预算撞线仍会早停）
+- [ ] 源选择 / 检索词 / 高级算子 / 轮次自主决策深化
 - [ ] item 级 KG 与 base KG 融合
-- [ ] Phase 5：Web 引擎切换、增量表单、playbook 人工审核面板
+- [ ] playbook 人工审核面板
 
 ---
 
@@ -177,8 +182,50 @@ docker-compose.yml            # mongo + intel-agent 服务
 
 ## 6. 建议的下一步（优先级）
 
-1. `docker compose run --rm intel-agent full --verbose` 确认数据写入 Mongo `runs`/`items`。
-2. `uv run pytest backend/intel_agent/tests -q` 确认 29 passed。
-3. 用 DBeaver 浏览 `items` 按 `topics` / `source_name` 聚合，评估 `agent tool abuse` 缺口。
-4. 若要以 Web 为主入口：改 `web/app.py` 使用 `intel_agent.store.default_store()`。
-5. 补 `docs/intel_agent_design.md` 与更新 `PROJECT_PROGRESS.md`。
+1. `docker compose up -d --build mongo web` → Collect 短采集 + Database 查 items + 可选 KG。
+2. `uv run pytest backend/intel_agent/tests backend/ctinexus_kg/tests backend/console/tests -q`
+3. `uv run python scripts/smoke_pipeline.py`
+4. 用 Database / DBeaver 按 `topics` 聚合，评估覆盖缺口。
+5. 补 `docs/intel_agent_design.md`（可选）。
+
+---
+
+## 7. Goal / Measure / Control 对照（统一交付，同日续作）
+
+产品目标：松耦合、可观测、可容器化的 **intel_agent → 持久化 → ctinexus_kg**，由 Gradio 编排。
+
+| Goal | Measure（通过标准） | Control |
+|------|---------------------|---------|
+| **G1** 采集与构图解耦 | `rg sufe_saads_crewai backend/ctinexus_kg` → 0；`intel_agent` 无 `ctinexus_kg` 代码 import | 禁止双向 import；交接仅 DTO / `run_id` |
+| **G2** 契约化交接 | `ctinexus_kg.pipeline.generate_for_run`；失败隔离单测 | KG 失败不回滚 `raw_items` |
+| **G3** 统一控制台 + 实时轨迹 | `backend/console` + `TraceSink.on_event` | generator 流式 yield；JSONL 可回放 |
+| **G4** 单一运行时镜像 | `Dockerfile` + compose `web`+`mongo`；保留 `intel-agent` profile | 批处理回滚路径不删 |
+
+### 验收清单
+
+- [x] G1：双向 import 扫描为 0（文档提及除外）
+- [x] G2：采集成功后 KG 失败不影响 `raw_items`（`test_kg` 失败隔离）
+- [x] G3：Gradio Collect 页绑定 `IntelAgentController` + live TraceSink 事件
+- [x] G4：`Dockerfile` / `docker-compose.yml`（web+mongo）+ `Dockerfile.intel_agent` profile
+- [x] M2/M5：`pytest` 两套绿 + `scripts/smoke_pipeline.py` 绿
+
+### 本续作新增路径
+
+```
+backend/ctinexus_kg/     # 自包含 item KG（schemas/pipeline/eligibility/…）
+backend/console/         # Gradio：Collect / Trace / KG / Database
+Dockerfile               # 统一镜像（intel + kg + gradio + Node/claude-code）
+scripts/smoke_pipeline.py
+```
+
+---
+
+## 8. 同日续作补记（Database 面板 · IS_SANDBOX · 文档）
+
+| 项 | 说明 |
+|----|------|
+| Gradio **Database** | `console/db_browser.py`：list runs、query items、run detail、CSV → `data/exports/` |
+| Store API | `MongoIntelRunStore` / `JsonIntelRunStore`：`list_run_summaries`、`query_items`、`distinct_sources` |
+| Docker root 修复 | `IS_SANDBOX=1`（Dockerfile / compose / `runtime.client.anthropic_env`）；否则 verbose 出现 `ProcessError` + rules fallback |
+| mongoexport | 宿主机执行；示例见根 `README.md` |
+| 文档 | 根 README、CLAUDE/AGENTS、三包 README、本纪要、PROJECT_PROGRESS §7.3 |

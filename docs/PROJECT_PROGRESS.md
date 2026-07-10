@@ -167,20 +167,25 @@ P0-P3 的代码与评估资产已落地，详见 ROADMAP 第 10 章状态标注�
 
 ## 7. backend/intel_agent 重构进展（2026-07-10）
 
-情报采集主线已迁移到自包含模块 `backend/intel_agent/`（Claude Agent SDK + loop-engineering + Playbook 自演化），对 `src/sufe_saads_crewai` **零依赖**。本轮会话完成验证、可观测性与持久化落地。完整纪要见 [SESSION_2026-07-10_intel_agent_maturity.md](SESSION_2026-07-10_intel_agent_maturity.md)。
+情报采集主线已迁移到自包含模块 `backend/intel_agent/`（Claude Agent SDK + loop-engineering + Playbook 自演化）。完整纪要见 [SESSION_2026-07-10_intel_agent_maturity.md](SESSION_2026-07-10_intel_agent_maturity.md)。
 
-### 7.1 已交付
+### 7.1 已交付（采集引擎）
 
-- **引擎与 CLI**：`uv run intel-agent full|incremental|latest`；全量/增量两种模式；确定性 rules fallback。
-- **真实采集验证**：一次 bootstrap 运行示例——2 轮、255 条去重情报、20 次源调用；6 话题覆盖 5 个，缺口 `agent tool abuse`。
-- **`--verbose`**：`observability.py` → 控制台 + `data/intel_agent/traces/<run_id>.jsonl`。
-- **MongoDB 历史库**：`mongo_store.py` + `store.default_store()`；`runs`（每任务）+ `items`（`item_id` 全局去重）；`mongomock` 离线单测。
-- **Docker**：`Dockerfile.intel_agent` + compose `mongo` / `intel-agent`（`profiles: ["intel"]`）。
-- **单测**：`backend/intel_agent/tests` 约 29 项（用户本地已确认 24+ 通过）。
+- **引擎与 CLI**：`uv run intel-agent full|incremental|latest`；全量/增量；rules fallback。
+- **真实采集验证**：bootstrap 示例——多轮、数百条去重情报、源 API 预算内运行。
+- **`--verbose`**：`observability.py` → 控制台 + `data/intel_agent/traces/<run_id>.jsonl`；`on_event` 供 UI。
+- **MongoDB 历史库**：`mongo_store.py` + `store.default_store()`；`runs` + `items`（`item_id` 全局去重）；查询 API 供 Database 面板。
+- **Docker 批处理**：`Dockerfile.intel_agent` + compose `intel-agent`（`profiles: ["intel"]`）。
 
-### 7.2 尚未完成（相对旧 Web/KG 主线）
+### 7.2 统一交付（同日：ctinexus_kg × Gradio × Docker）
 
-- Gradio Web 仍读 JSON `latest.json`，未接 Mongo `default_store()`。
-- `docs/intel_agent_design.md`、ROADMAP Phase 4 文档更新、A/B 脚本对接新引擎。
-- Legacy `src/sufe_saads_crewai/intel/` 未删除；KG 管线未接入新引擎。
-- Mongo 生产鉴权、Web 引擎切换与 playbook 人工审核 UI（路线图 Phase 5）。
+- **`backend/ctinexus_kg`**：自包含 item KG；`generate_for_run`；失败隔离；0 import intel_agent。
+- **`backend/console`**：Collect（实时轨迹）/ Trace replay / Knowledge Graphs / **Database**（查询 + CSV）。
+- **统一镜像**：根 `Dockerfile` + `docker compose up mongo web`；`IS_SANDBOX=1` 修复 root 下 Claude Code 拒绝 bypassPermissions。
+- **冒烟**：`scripts/smoke_pipeline.py`；测试含 `backend/console/tests`。
+
+### 7.3 尚未完成
+
+- `docs/intel_agent_design.md`、ROADMAP Phase 4 全面改写、A/B 脚本对接新引擎。
+- Mongo 生产鉴权；playbook 人工审核 UI；item KG ↔ base KG 融合。
+- 若仓库仍含 legacy `src/` 采集路径，可归档删除（以当前分支为准）。

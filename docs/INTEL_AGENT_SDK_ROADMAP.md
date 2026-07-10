@@ -1,5 +1,10 @@
 # 情报采集智能体研究路线：迁移 Claude Agent SDK 与自主智能提升
 
+> **状态更新（2026-07）**：采集主线已落地为自包含 `backend/intel_agent/`（非本文早期的
+> `src/.../sdk_loop.py` 方案）。统一交付见根 `README.md` 与
+> `docs/SESSION_2026-07-10_intel_agent_maturity.md`。下文保留为历史设计与 P0–P3 评估记录，
+> 实施时以 `backend/intel_agent` / `backend/console` / `backend/ctinexus_kg` 为准。
+
 更新时间：2026-06-13
 状态：P0-P2 已实施并通过 P0 验收（DeepSeek Anthropic 兼容端点全矩阵实测达标，见第 5 章）；P3 评估资产就绪、sdk 引擎已可 live 运行（见 10.1 实施状态），完整 A/B 与默认引擎切换待执行。GLM 端点因 Coding Plan 到期保留为备选 provider
 

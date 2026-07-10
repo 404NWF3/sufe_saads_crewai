@@ -12,73 +12,60 @@
 ## 技术栈与运行
 
 - Python `>=3.10,<3.14`，包管理一律用 `uv`（`uv sync` / `uv add`）。
-- CrewAI `1.14.4`（项目类型 crew）、CTINexus `0.2.1`、Gradio 5.x。
-- 常用入口（定义在 `pyproject.toml [project.scripts]`）：
-  - `uv run web` — 启动 Gradio 控制台（默认 8000 端口）
-  - `uv run run_crew` 或 `crewai run` — 命令行情报采集（旧 CrewAI 引擎，legacy）
-  - `uv run latest_intel` — 查看最近一次采集结果
-  - **`uv run intel-agent full` / `uv run intel-agent incremental` / `uv run intel-agent latest`** —
-    新的自包含 Claude Agent SDK 情报采集引擎（`backend/intel_agent/`，见下文「情报采集重构」）。
-    加 `--verbose` 实时打印模型文本/工具调用并落 `data/intel_agent/traces/<run_id>.jsonl`。
-- 测试：`uv run pytest tests/`（旧包）与 `uv run pytest backend/intel_agent/tests`（新引擎，离线，当前约 29 项）。修改 intel/kg/schemas/web 模块后请跑对应测试文件。
-- 依赖同步（新引擎）：`uv sync --group agentsdk --group intelagent`（含 `claude-agent-sdk`、`pydantic`、`pymongo`）。
-- Docker 部署：
-  - Web（旧引擎）：`docker compose up --build`，挂载 `./data` 与 `./ctinexus_output`。
-  - intel_agent + MongoDB：`docker compose up -d mongo` 起库；`docker compose run --rm intel-agent full --verbose` 跑一次采集（镜像 `Dockerfile.intel_agent`，`profiles:["intel"]`，容器内自动用 `mongodb://mongo:27017`）。
-- 环境变量见 `.env.example`；KG 适配层 API key 回退顺序：`CTINEXUS_*` → `OPENAI_*` → `GLM_*`。
+- CTINexus `0.2.1`、Gradio 5.x、Claude Agent SDK（`claude-agent-sdk`）、可选 MongoDB（`pymongo`）。
+- 常用入口（`pyproject.toml [project.scripts]`）：
+  - **`uv run intel-agent full` / `incremental` / `latest`** — `backend/intel_agent/` 采集引擎；加 `--verbose` 落 `data/intel_agent/traces/<run_id>.jsonl`。
+  - **`uv run web`** — `backend/console/` Gradio：Collect / Trace / KG / **Database**。
+- 测试：`uv run pytest backend/intel_agent/tests backend/ctinexus_kg/tests backend/console/tests -q`；冒烟 `uv run python scripts/smoke_pipeline.py`。
+- 依赖同步：`uv sync --group agentsdk --group intelagent --group ctinexuskg --group web --group dev`。
+- Docker：`docker compose up -d --build mongo web`（统一镜像）；批处理：`docker compose run --rm intel-agent full --verbose`（`Dockerfile.intel_agent`，`profiles:["intel"]`）。镜像以 root 跑时需 **`IS_SANDBOX=1`**（compose/Dockerfile 已设），否则 Claude Code 拒绝 `bypassPermissions` 并退化 rules fallback。
+- 环境变量见 `.env.example`；KG API key 回退：`CTINEXUS_*` → `OPENAI_*` → `GLM_*`。
+- **架构禁令**：`intel_agent` 与 `ctinexus_kg` **禁止互相 import**；交接仅通过 `run_id` + item DTO / 持久化产物。UI 编排只在 `backend/console`。
 
 ## 代码结构要点
 
 ```
-src/sufe_saads_crewai/
-├── intel/real_loop.py        # RealIntelRunController：真实源多轮采集主控制器
-├── intel/adaptive_loop.py    # 自适应采集循环
-├── kg/ctinexus_adapter.py    # CTINexus 适配层（item 级 KG 生成）
-├── kg/eligibility.py         # kg_ready 判断（来源排除、相关度阈值、主题匹配）
-├── kg/feedback.py            # triplet 人工反馈记录（JSONL，闭环尚未接通）
-├── schemas/                  # Pydantic 模型（intel、kg、coverage、persistence 等）
-├── tools/registered_source_tools.py  # NVD / CISA KEV / OSV / arXiv 源工具
-├── web/app.py                # Gradio 控制台
-├── config/{agents,tasks}.yaml
-└── crew.py / main.py
+backend/
+├── intel_agent/          # SDK 采集引擎（0 import ctinexus_kg / src）
+├── ctinexus_kg/          # item 级 KG（0 import intel_agent / src）
+└── console/              # Gradio：采集 + verbose + KG + Database
 ```
 
-> **情报采集重构（2026-07，重要）**：情报采集主线已迁移到全新的**自包含**模块
-> `backend/intel_agent/`，以 **Claude Agent SDK** 为核心（loop-engineering + self-evolving），
-> **对 `src/sufe_saads_crewai` 零依赖**（自带 schema、源客户端、三层相关性、持久化、技巧库）。
-> 老的 `src/sufe_saads_crewai/intel/`（`real_loop.py` / `adaptive_loop.py` / `sdk_loop.py` 等）、
-> `crew.py`、`config/*.yaml`、`tools/registered_source_tools.py` 均视为 **legacy**：可随时删除而不影响
-> 新引擎运行；写新功能一律进 `backend/intel_agent/`，不要再改老 intel 模块。KG（`kg/`）、Web
-> （`web/`）、`base_kg/` 暂保留但不被新引擎依赖。模块结构、两种采集模式与调参见
-> `backend/intel_agent/README.md`。
+> **主线（2026-07）**：采集与构图解耦。`intel_agent` 只采集并持久化；`ctinexus_kg` 只消费
+> 已落库条目生成 item KG；`console` 负责 UI、TraceSink 实时轨迹与数据库浏览。详见各包 README。
+> `base_kg/`（Neo4j 基底图）仍为独立方向，不接入本流水线。
 
 ```
-backend/intel_agent/               # 自包含 SDK 情报采集引擎（0 import src/）
-├── schemas.py / topics.py / analysis.py   # 自带模型、话题、确定性分析层
-├── sources.py                     # NVD / arXiv / CISA KEV / OSV 客户端（含重试）
-├── relevance.py                   # 三层相关性：rule → embedding → flash LLM
-├── persistence.py                 # JSON 存储：data/intel_runs/<run_id>.json + latest.json
-├── mongo_store.py + store.py       # MongoDB 历史库（runs + 全局去重 items）+ 存储工厂
-├── observability.py               # --verbose 追踪（控制台 + JSONL transcript）
-├── runtime/                       # provider 解析、options、tool-forcing 结构化决策
-├── memory/                        # 自演化技巧库 Playbook（upsert/衰减/召回/harvest）
-├── tools/ + hooks.py              # 轮内 @tool（源搜索/召回/记录/收尾）+ 审计钩子
-├── agent/                         # 每轮一个 SDK 会话 + 终止 critic
-├── engine/                        # 采集模式(full/incremental) + 编排 controller + digest + fallback
-├── cli.py                         # intel-agent full / incremental / latest
-└── tests/                         # 离线单测（注入 fake runner/embedder）
+backend/intel_agent/               # 自包含 SDK 情报采集引擎
+├── schemas.py / topics.py / analysis.py
+├── sources.py / relevance.py
+├── persistence.py / mongo_store.py / store.py   # list_run_summaries / query_items
+├── observability.py               # TraceSink：console + JSONL + on_event 回调
+├── runtime/ / memory/ / tools/ / hooks.py
+├── agent/ / engine/ / cli.py
+└── tests/
+
+backend/ctinexus_kg/               # 自包含 CTINexus item-KG
+├── schemas.py / topics.py / eligibility.py / prompting.py
+├── ctinexus_adapter.py / pipeline.py / feedback.py
+└── tests/
+
+backend/console/                   # Gradio 统一控制台
+├── app.py / db_browser.py
+└── tests/
 ```
 
 数据与输出约定：
 
-- 采集结果：`data/intel_runs/<run_id>.json`（含 `blackboard.raw_items`、`query_history`、`coverage_gaps`、`reflection_notes`、`item_knowledge_graphs`）与 `latest.json`。
-- **intel_agent 历史库（MongoDB，可选）**：设置 `INTEL_MONGO_URI`（或 `INTEL_MONGO_ENABLED=1`）后，`backend/intel_agent` 落库到 MongoDB——`runs` 集合每次采集任务一份文档，`items` 集合以 `item_id` 作 `_id` 做全局去重（同一情报永不重复入库，多轮出现只 upsert 并把 run 追加到 `run_ids` 溯源数组）。未配置时回退到上面的 JSON 文件（离线/测试零依赖）。`docker compose up -d mongo` 起本地库；宿主机/DBeaver 连 `localhost:27017`、库名 `intel_agent`、无鉴权；容器内用 `mongodb://mongo:27017`。
-- **intel_agent verbose 追踪**：`--verbose` 会实时打印模型文本/工具调用，并把完整事件流写到 `data/intel_agent/traces/<run_id>.jsonl`。
+- 采集结果：`data/intel_runs/<run_id>.json` + `latest.json`（未开 Mongo 时）；或 MongoDB `intel_agent.runs` / `items`。
+- **MongoDB（可选）**：`INTEL_MONGO_URI` 或 `INTEL_MONGO_ENABLED=1`。`runs` 每任务一份；`items` 以 `item_id` 作 `_id` 全局去重（`run_ids` 溯源）。宿主机/DBeaver：`localhost:27017`、库 `intel_agent`、无鉴权；容器内：`mongodb://mongo:27017`。全量 CSV：宿主机用 `mongoexport`（勿在 mongosh 内跑 `docker`）；或 Gradio Database / `data/exports/`。
+- **verbose 追踪**：`data/intel_agent/traces/<run_id>.jsonl`。
 - item 级 KG：`data/intel_runs/<run_id>_kg/<item_id>.json` + `manifest.json`；可视化 HTML 在 `ctinexus_output/`。
-- **base KG 源语料**：`data/kg-source/`，约 470 篇 PDF，分五类——`arxiv/`（322 篇）、`ICML/`（100 篇）、`OWASP/`（10 篇，LLM Top 10 系列）、`其他/`（NIST AI RMF 等 3 篇）、`知网/`（34 篇中文文献）。注意语料是中英混合的，pipeline 设计需考虑双语处理。
-- KG 生成只把 item 的 `raw_text`（为空则 `summary`）传给 CTINexus，title/source/URI/metadata 一律不进入抽取文本，`source_uri` 仅留在本项目记录中用于溯源。
+- CSV 导出：`data/exports/`（Database 面板或 `mongoexport`）。
+- **base KG 源语料**：`data/kg-source/`（中英混合 PDF）。
+- KG 只把 item 的 `raw_text`（空则 `summary`）传给 CTINexus；`source_uri` 仅作溯源。
 
-详细的当前进展与已知风险见 `docs/PROJECT_PROGRESS.md`；**2026-07-10 intel_agent 验证/可观测性/Mongo/Docker 会话纪要**见 `docs/SESSION_2026-07-10_intel_agent_maturity.md`。
+详细进展见 `docs/PROJECT_PROGRESS.md`；会话纪要见 `docs/SESSION_2026-07-10_intel_agent_maturity.md`。
 
 ## 发展路线图
 

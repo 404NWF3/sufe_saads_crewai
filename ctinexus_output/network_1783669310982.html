@@ -88,8 +88,8 @@
                   
 
                   // parsing and collecting nodes and edges from the python
-                  nodes = new vis.DataSet([{"color": "#aaaaaa", "font": {"color": "#ffffff"}, "id": 0, "label": "GraphCypherQAChain class flaw", "shape": "dot", "size": 29, "title": "GraphCypherQAChain class flaw"}, {"color": "#aaaaaa", "font": {"color": "#ffffff"}, "id": 1, "label": "langchain-ai/langchainjs", "shape": "dot", "size": 20, "title": "langchain-ai/langchainjs"}, {"color": "#44ffff", "font": {"color": "#ffffff"}, "id": 4, "label": "prompt injection", "shape": "dot", "size": 23, "title": "prompt injection"}, {"color": "#44ffff", "font": {"color": "#ffffff"}, "id": 5, "label": "SQL injection", "shape": "dot", "size": 20, "title": "SQL injection"}, {"color": "#aaaaaa", "font": {"color": "#ffffff"}, "id": 6, "label": "Attackers", "shape": "dot", "size": 26, "title": "Attackers"}, {"color": "#aaaaaa", "font": {"color": "#ffffff"}, "id": 2, "label": "database", "shape": "dot", "size": 20, "title": "database"}]);
-                  edges = new vis.DataSet([{"arrows": "to", "color": "#666666", "from": 0, "label": "affects", "length": 1029, "title": "affects", "to": 1}, {"arrows": "to", "color": "#666666", "from": 0, "label": "allows for", "length": 1010, "title": "allows for", "to": 4}, {"arrows": "to", "color": "#666666", "from": 0, "label": "permits", "length": 941, "title": "permits", "to": 5}, {"arrows": "to", "color": "#666666", "from": 4, "label": "leads to", "length": 852, "title": "leads to", "to": 5}, {"arrows": "to", "color": "#666666", "from": 6, "label": "exploits", "length": 924, "title": "exploits", "to": 0}, {"arrows": "to", "color": "#666666", "from": 6, "label": "disrupts", "length": 756, "title": "disrupts", "to": 2}]);
+                  nodes = new vis.DataSet([]);
+                  edges = new vis.DataSet([]);
 
                   nodeColors = {};
                   allNodes = nodes.get({ returnType: "Object" });
@@ -100,7 +100,7 @@
                   // adding nodes and edges to the graph
                   data = {nodes: nodes, edges: edges};
 
-                  var options = {"physics": {"enabled": true, "barnesHut": {"gravitationalConstant": -8000, "springLength": 910, "springConstant": 0, "damping": 0.4, "avoidOverlap": 1}}, "nodes": {"font": {"size": 18, "color": "#ffffff", "strokeWidth": 2, "strokeColor": "#000000"}}, "edges": {"smooth": {"enabled": true, "type": "curvedCW", "roundness": 0.15}, "font": {"size": 16, "color": "#ffffff", "strokeWidth": 2, "strokeColor": "#000000"}}, "interaction": {"dragNodes": true, "dragView": true, "zoomView": true, "hover": true}, "layout": {"improvedLayout": true}};
+                  var options = {"physics": {"enabled": true, "barnesHut": {"gravitationalConstant": -8000, "springLength": 500, "springConstant": 0, "damping": 0.4, "avoidOverlap": 1}}, "nodes": {"font": {"size": 18, "color": "#ffffff", "strokeWidth": 2, "strokeColor": "#000000"}}, "edges": {"smooth": {"enabled": true, "type": "curvedCW", "roundness": 0.15}, "font": {"size": 16, "color": "#ffffff", "strokeWidth": 2, "strokeColor": "#000000"}}, "interaction": {"dragNodes": true, "dragView": true, "zoomView": true, "hover": true}, "layout": {"improvedLayout": true}};
 
                   
 

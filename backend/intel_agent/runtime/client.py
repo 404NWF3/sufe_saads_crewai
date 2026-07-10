@@ -109,7 +109,7 @@ def base_url() -> str:
 
 def anthropic_env() -> dict[str, str]:
     """Environment injected into the bundled CLI subprocess."""
-    return {
+    env = {
         "ANTHROPIC_BASE_URL": base_url(),
         "ANTHROPIC_AUTH_TOKEN": api_key(),
         "ANTHROPIC_API_KEY": "",
@@ -119,6 +119,14 @@ def anthropic_env() -> dict[str, str]:
         "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
         "DISABLE_TELEMETRY": "1",
     }
+    # Claude Code refuses --dangerously-skip-permissions (bypassPermissions) as
+    # root unless it believes it is sandboxed. Docker images often run as root.
+    sandbox = _setting("IS_SANDBOX")
+    if sandbox:
+        env["IS_SANDBOX"] = sandbox
+    elif hasattr(os, "geteuid") and os.geteuid() == 0:
+        env["IS_SANDBOX"] = "1"
+    return env
 
 
 def sdk_runtime_available() -> tuple[bool, str]:

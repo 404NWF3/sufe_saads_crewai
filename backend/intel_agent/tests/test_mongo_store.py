@@ -62,6 +62,9 @@ def test_cross_run_dedup_upserts_shared_items(store):
 
 def test_load_all_blackboards_and_latest(store):
     store.save_run(_blackboard("run-1", ["nvd:a"]))
+    import time
+
+    time.sleep(0.05)
     store.save_run(_blackboard("run-2", ["nvd:b"]))
 
     boards = store.load_all_blackboards(limit=10)
@@ -69,3 +72,49 @@ def test_load_all_blackboards_and_latest(store):
     latest = store.load_latest_payload()
     assert latest["run_id"] == "run-2"
     assert "Store: MongoDB" in store.format_latest_intel()
+
+
+def test_list_run_summaries_and_query_items(store):
+    store.save_run(_blackboard("run-1", ["nvd:a", "nvd:b"]))
+    import time
+
+    time.sleep(0.05)
+    store.save_run(_blackboard("run-2", ["nvd:b", "nvd:c"]))
+
+    summaries = store.list_run_summaries(limit=10)
+    assert [s["run_id"] for s in summaries] == ["run-2", "run-1"]
+    assert summaries[0]["item_count"] == 2
+
+    by_run = store.query_items(run_id="run-1", limit=50)
+    assert {d["item_id"] for d in by_run} == {"nvd:a", "nvd:b"}
+
+    by_text = store.query_items(text="nvd:c", limit=10)
+    assert len(by_text) == 1
+    assert by_text[0]["item_id"] == "nvd:c"
+
+    assert store.run_count() == 2
+    assert "nvd_cve_api" in store.distinct_sources()
+
+
+def test_save_and_list_knowledge_graphs(store):
+    store.save_run(_blackboard("run-kg", ["nvd:kg"]))
+    record = {
+        "item_id": "nvd:kg",
+        "run_id": "run-kg",
+        "status": "succeeded",
+        "source_name": "nvd_cve_api",
+        "triplet_count": 3,
+        "entity_count": 4,
+        "model": "glm-4.7",
+        "embedding_model": "embedding-3",
+    }
+    store.save_knowledge_graph(record, graph={"IE": {"triplets": []}})
+    rows = store.list_knowledge_graphs(limit=10)
+    assert len(rows) == 1
+    assert rows[0]["item_id"] == "nvd:kg"
+    assert "graph" not in rows[0]
+    full = store.load_knowledge_graph("nvd:kg")
+    assert full is not None and "graph" in full
+    item = store.get_item("nvd:kg")
+    assert item["kg_status"] == "succeeded"
+    assert store.knowledge_graph_count() == 1

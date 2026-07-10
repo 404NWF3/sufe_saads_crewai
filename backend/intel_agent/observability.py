@@ -2,23 +2,22 @@
 
 A ``TraceSink`` receives structured events (round boundaries, per-turn model
 text, tool calls + results, session/critic summaries) and optionally (a) prints
-a readable line to the console and (b) appends the raw event to a JSONL
-transcript at ``data/intel_agent/traces/<run_id>.jsonl`` for later replay.
-
-Kept dependency-free: the loop/controller emit generic events; nothing here
-imports the SDK or the rest of the package.
+a readable line to the console, (b) appends the raw event to a JSONL
+transcript, and (c) invokes an optional ``on_event`` callback for live UI streaming.
 """
 
 from __future__ import annotations
 
 import json
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, TextIO
 
 DEFAULT_TRACE_DIR = Path("data") / "intel_agent" / "traces"
+EventCallback = Callable[[dict[str, Any]], None]
 
 
 def _truncate(value: Any, limit: int = 600) -> str:
@@ -37,6 +36,7 @@ class TraceSink:
 
     console: bool = True
     trace_dir: Path | None = DEFAULT_TRACE_DIR
+    on_event: EventCallback | None = None
     path: Path | None = field(default=None, init=False)
     _fh: TextIO | None = field(default=None, init=False, repr=False)
 
@@ -52,6 +52,11 @@ class TraceSink:
             line = _format(record)
             if line:
                 print(line, flush=True)
+        if self.on_event is not None:
+            try:
+                self.on_event(record)
+            except Exception:  # noqa: BLE001 - UI callbacks must not break collection
+                pass
 
     def close(self) -> None:
         if self._fh is not None:
@@ -64,6 +69,22 @@ class TraceSink:
             self._fh = self.path.open("a", encoding="utf-8")  # type: ignore[union-attr]
         self._fh.write(json.dumps(record, ensure_ascii=False) + "\n")
         self._fh.flush()
+
+
+def format_event_line(record: dict[str, Any]) -> str:
+    """Public formatter for Gradio / replay UIs."""
+    return _format(record)
+
+
+def load_trace_jsonl(path: str | Path) -> list[dict[str, Any]]:
+    p = Path(path)
+    if not p.exists():
+        return []
+    events: list[dict[str, Any]] = []
+    for line in p.read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            events.append(json.loads(line))
+    return events
 
 
 def _format(record: dict[str, Any]) -> str:

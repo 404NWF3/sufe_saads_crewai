@@ -40,6 +40,17 @@ def test_format_renders_known_events_and_skips_unknown():
     assert _format({"event": "mystery"}) == ""
 
 
+def test_on_event_callback_receives_records(tmp_path):
+    seen: list[dict] = []
+    sink = TraceSink(console=False, trace_dir=tmp_path, on_event=seen.append)
+    sink.bind_run("cb-run")
+    sink.emit("tool_call", tool="search_nvd", input={"q": "x"})
+    sink.close()
+    assert len(seen) == 1
+    assert seen[0]["event"] == "tool_call"
+    assert seen[0]["tool"] == "search_nvd"
+
+
 def _fake_loop() -> IntelAgentLoop:
     async def runner(ctx, prompt, model, max_turns):
         item_id = "nvd:1"

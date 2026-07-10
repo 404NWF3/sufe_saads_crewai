@@ -1,42 +1,45 @@
 [project]
 name = "sufe_saads_crewai"
-version = "0.1.0"
-description = "SUFE-SAADS-CrewAI using crewAI"
+version = "0.2.0"
+description = "LLM-security intel_agent + ctinexus_kg + Gradio console"
 authors = [{ name = "Your Name", email = "you@example.com" }]
 requires-python = ">=3.10,<3.14"
 dependencies = [
-    "crewai[tools]==1.14.4",
+    "claude-agent-sdk>=0.2.113",
+    "pydantic>=2.7",
+    "pymongo>=4.6",
     "ctinexus==0.2.1",
     "gradio>=5.0.0,<6.0.0",
+    "matplotlib>=3.10.9",
 ]
 
 [project.scripts]
-sufe_saads_crewai = "sufe_saads_crewai.main:run"
-run_crew = "sufe_saads_crewai.main:run"
-train = "sufe_saads_crewai.main:train"
-replay = "sufe_saads_crewai.main:replay"
-test = "sufe_saads_crewai.main:test"
-run_with_trigger = "sufe_saads_crewai.main:run_with_trigger"
-mock_intel_loop = "sufe_saads_crewai.main:run_mock_loop"
-latest_intel = "sufe_saads_crewai.main:show_latest_intel"
-web = "sufe_saads_crewai.web.app:main"
-# intel_agent (backend/): self-contained Claude Agent SDK collection engine.
 intel-agent = "intel_agent.cli:main"
 intel_full = "intel_agent.cli:run_full"
 intel_incremental = "intel_agent.cli:run_incremental"
 intel_latest = "intel_agent.cli:show_latest"
+web = "console.app:main"
 
 [dependency-groups]
 agentsdk = [
     "claude-agent-sdk>=0.2.113",
 ]
-# Self-contained deps for backend/intel_agent (0 dependency on the crew package).
 intelagent = [
     "claude-agent-sdk>=0.2.113",
     "pydantic>=2.7",
     "pymongo>=4.6",
 ]
-# Standalone base-KG pipeline (base_kg/), not part of the crew package.
+ctinexuskg = [
+    "ctinexus==0.2.1",
+    "pydantic>=2.7",
+]
+web = [
+    "gradio>=5.0.0,<6.0.0",
+    "claude-agent-sdk>=0.2.113",
+    "pydantic>=2.7",
+    "pymongo>=4.6",
+    "ctinexus==0.2.1",
+]
 basekg = [
     "neo4j>=5.20",
     "openai>=1.40",
@@ -53,7 +56,4 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/sufe_saads_crewai", "backend/intel_agent"]
-
-[tool.crewai]
-type = "crew"
+packages = ["backend/intel_agent", "backend/ctinexus_kg", "backend/console"]
