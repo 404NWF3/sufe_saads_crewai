@@ -1,8 +1,6 @@
-"""LLM-security topics — re-export shared taxonomy from ``common.topics``."""
+"""Shared constants for backend packages (topics only; no business logic)."""
 
-from __future__ import annotations
-
-from common.topics import (  # noqa: F401
+from .topics import (
     ALL_SECURITY_TOPICS,
     CORE_SECURITY_TOPICS,
     EXTENDED_SECURITY_TOPICS,

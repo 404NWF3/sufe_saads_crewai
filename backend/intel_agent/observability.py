@@ -113,6 +113,11 @@ def _format(record: dict[str, Any]) -> str:
         return f"  [session end] turns={record.get('turns')}{cost_txt}{err}"
     if event == "session_fallback":
         return f"  [fallback] agent round unavailable: {record.get('reason')}"
+    if event == "session_truncated":
+        return (
+            f"  [truncated] session ended early but kept collected items: "
+            f"{record.get('reason')}"
+        )
     if event == "round_summary":
         return (
             f"  [round {record['round']}] +{record.get('new_items', 0)} new items | "

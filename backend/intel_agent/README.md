@@ -9,7 +9,7 @@
 ```
 backend/intel_agent/
 ├── schemas.py          # 自包含 Pydantic 模型（RawIntelItem / Blackboard / 决策输出…）
-├── topics.py           # LLM 安全目标话题 + 文本工具
+├── topics.py           # re-export common.topics（Core / Extended）
 ├── sources.py          # NVD / arXiv / CISA KEV / OSV 源客户端（含重试）
 ├── relevance.py        # 三层相关性过滤：rule → embedding → flash LLM
 ├── analysis.py         # 确定性分析层：合并/覆盖配额/停滞检测/fallback 组词
@@ -40,15 +40,15 @@ backend/intel_agent/
 
 ## 两种采集模式
 
-- **full（全量）**：覆盖全部目标话题，尽量多收 LLM 安全情报、尽量少纳入无关内容。
+- **full（全量）**：覆盖 **Core** 话题配额（18 项，驱动 `open_gaps` / critic）；检索与标注同时覆盖
+  **Extended**（另 15 项）。话题定义见 `backend/common/topics.py`。
   ```bash
   uv run intel-agent full --max-rounds 6 --max-api-calls 40
   ```
-- **incremental（增量）**：按话题 + 时间窗采集；下界默认取历史 watermark（既有运行的最新
-  `published_at`），只追真正的新情报。
+- **incremental（增量）**：单一 focus（可为 Core 或 Extended）+ 时间窗；下界默认 watermark。
   ```bash
   uv run intel-agent incremental --focus "agent tool abuse" --window-days 1
-  uv run intel-agent incremental --focus jailbreak --since 2026-07-01
+  uv run intel-agent incremental --focus "model extraction" --since 2026-07-01
   ```
 - 查看最近一次结果：`uv run intel-agent latest`
 

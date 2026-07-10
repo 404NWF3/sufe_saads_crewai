@@ -21,39 +21,7 @@ from pathlib import Path
 from typing import Any, Callable, Sequence
 
 from .schemas import RawIntelItem
-
-TOPIC_ANCHORS: dict[str, list[str]] = {
-    "prompt injection": [
-        "An attacker embeds malicious instructions in content that a large language model processes, overriding the system prompt.",
-        "Indirect prompt injection hides adversarial instructions in web pages, documents, or tool outputs consumed by an LLM application.",
-        "A chatbot is manipulated through crafted user input to ignore its instructions and perform unintended actions.",
-    ],
-    "jailbreak": [
-        "A jailbreak prompt bypasses the safety alignment of a large language model to elicit prohibited content.",
-        "Adversarial prompting techniques defeat refusal behavior and guardrails of aligned chat models.",
-        "Red-teaming attacks systematically break LLM safety policies through role-play or encoding tricks.",
-    ],
-    "agent tool abuse": [
-        "An autonomous LLM agent is tricked into invoking dangerous tools such as shell commands or code execution.",
-        "Vulnerabilities in agent frameworks let attackers escalate from prompt control to arbitrary tool invocation or API misuse.",
-        "A confused-deputy attack abuses the permissions of an AI agent's plugins, function calling, or MCP servers.",
-    ],
-    "data leakage": [
-        "A large language model leaks sensitive training data, secrets, or personal information in its responses.",
-        "Cross-tenant or session data exposure occurs in an LLM application, revealing other users' prompts or documents.",
-        "Training data extraction attacks recover memorized confidential text from a deployed model.",
-    ],
-    "model supply chain": [
-        "Malicious or tampered model artifacts execute code on load, for example through unsafe pickle deserialization.",
-        "Vulnerabilities in ML infrastructure such as model registries, serving frameworks, or fine-tuning pipelines compromise the AI supply chain.",
-        "A compromised package or model hub distribution channel delivers backdoored AI components.",
-    ],
-    "rag poisoning": [
-        "An attacker poisons the document corpus or vector database of a retrieval-augmented generation system to manipulate answers.",
-        "Embedding or knowledge-base poisoning injects adversarial passages that are retrieved and trusted by an LLM.",
-        "Retrieval corruption attacks degrade or hijack RAG pipelines through crafted indexed content.",
-    ],
-}
+from .topics import TOPIC_ANCHORS
 
 EmbedFn = Callable[[Sequence[str]], list[list[float]]]
 JudgeFn = Callable[[list[dict[str, str]]], list[bool | None]]

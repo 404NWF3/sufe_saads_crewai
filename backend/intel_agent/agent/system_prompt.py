@@ -23,13 +23,21 @@ SYSTEM_PROMPT = (
     "admitting as little unrelated content as possible.\n"
     "5. Ground every decision in the digest you are given; never fabricate CVE IDs, "
     "results, or identifiers.\n"
-    "6. When marginal yield no longer justifies more calls, stop and call "
-    "submit_round_summary."
+    "6. Budget your tool turns carefully. Batch parallel searches, stop when "
+    "marginal yield drops, and ALWAYS call submit_round_summary before you run out "
+    "of turns -- never leave a round without that closing call."
 )
 
 FULL_MODE_BRIEF = (
-    "MODE: full collection. Target = ALL LLM-security topics. Maximize breadth and "
-    "depth: reach the coverage quota for every target topic while suppressing noise."
+    "MODE: full collection. Coverage quotas apply to Core LLM-security topics "
+    "(prompt injection, jailbreak, agent tool abuse, data leakage, model supply "
+    "chain, rag poisoning, insecure output handling, excessive agency, model DoS, "
+    "unbounded consumption, model backdoor, agent loop/cascading failure, "
+    "multi-agent communication attack, unsafe code gen/exec, sandbox escape, "
+    "plugin/MCP trust, authz bypass, unsafe file handling). Also search and label "
+    "Extended threats (SSRF, model extraction, memory poisoning, etc.) when they "
+    "appear, but prioritize open Core coverage gaps. Maximize relevant recall while "
+    "suppressing unrelated noise."
 )
 
 INCREMENTAL_MODE_BRIEF = (
@@ -47,6 +55,7 @@ def render_round_prompt(
     focus: str | None = None,
     time_scope_hint: str | None = None,
     open_gaps: list[str] | None = None,
+    max_turns: int | None = None,
 ) -> str:
     lines = [mode_brief, ""]
     if focus:
@@ -58,9 +67,15 @@ def render_round_prompt(
     lines.append("")
     lines.append(digest)
     lines.append("")
+    turn_budget = (
+        f" You have at most {max_turns} tool turns this session;"
+        if max_turns
+        else ""
+    )
     lines.append(
-        f"This is round {round_index + 1} of at most {max_rounds}. Recall the playbook, "
-        "run your searches now, record any technique that worked, then call "
-        "submit_round_summary to end the round."
+        f"This is round {round_index + 1} of at most {max_rounds}.{turn_budget} "
+        "Recall the playbook, run a focused set of searches (batch in parallel), "
+        "record any technique that worked, then call submit_round_summary to end "
+        "the round before the turn budget is exhausted."
     )
     return "\n".join(lines)

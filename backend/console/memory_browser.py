@@ -8,7 +8,7 @@ from typing import Any
 
 from intel_agent.memory.playbook import PlaybookStore, default_playbook_path
 from intel_agent.relevance import RelevanceConfig
-from intel_agent.topics import TARGET_SECURITY_TOPICS
+from intel_agent.topics import ALL_SECURITY_TOPICS
 
 from .db_browser import _write_csv
 
@@ -67,7 +67,7 @@ def memory_status() -> str:
 
 
 def playbook_topic_choices() -> list[str]:
-    return [""] + list(TARGET_SECURITY_TOPICS) + ["general"]
+    return [""] + list(ALL_SECURITY_TOPICS) + ["general"]
 
 
 def playbook_status_choices() -> list[str]:

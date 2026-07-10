@@ -14,14 +14,15 @@ from datetime import datetime, timedelta, timezone
 from ..analysis import topic_bucket
 from ..agent.system_prompt import FULL_MODE_BRIEF, INCREMENTAL_MODE_BRIEF
 from ..persistence import JsonIntelRunStore
-from ..topics import TARGET_SECURITY_TOPICS
+from ..topics import ALL_SECURITY_TOPICS, CORE_SECURITY_TOPICS
 
 
 @dataclass
 class CollectionMode:
     run_mode: str = "bootstrap"
     mode_brief: str = FULL_MODE_BRIEF
-    target_topics: list[str] = field(default_factory=lambda: list(TARGET_SECURITY_TOPICS))
+    # Coverage / critic targets = Core only. Search may still hit Extended via keywords.
+    target_topics: list[str] = field(default_factory=lambda: list(CORE_SECURITY_TOPICS))
     focus: str | None = None
     run_goal: str = "Collect LLM/AI security intelligence."
 
@@ -41,8 +42,9 @@ class FullCollectionMode(CollectionMode):
     run_mode: str = "bootstrap"
     mode_brief: str = FULL_MODE_BRIEF
     run_goal: str = (
-        "Full collection: maximize relevant LLM/AI security intelligence across all "
-        "target topics while admitting as little unrelated content as possible."
+        "Full collection: maximize relevant LLM/AI security intelligence across Core "
+        "coverage topics (and related Extended threats) while admitting as little "
+        "unrelated content as possible."
     )
 
 
@@ -57,7 +59,9 @@ class IncrementalCollectionMode(CollectionMode):
 
     def __post_init__(self) -> None:
         if self.focus:
-            self.target_topics = [self.focus] if self.focus in TARGET_SECURITY_TOPICS else self.target_topics
+            focus_l = self.focus.strip().lower()
+            if focus_l in ALL_SECURITY_TOPICS:
+                self.target_topics = [focus_l]
             self.run_goal = (
                 f"Incremental collection focused on '{self.focus}' within the given time scope."
             )

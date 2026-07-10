@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from intel_agent.store import default_store
-from intel_agent.topics import TARGET_SECURITY_TOPICS
+from intel_agent.topics import ALL_SECURITY_TOPICS, CORE_SECURITY_TOPICS
 
 EXPORT_DIR = Path("data") / "exports"
 
@@ -76,7 +76,7 @@ def source_choices() -> list[str]:
 
 
 def topic_choices() -> list[str]:
-    return [""] + list(TARGET_SECURITY_TOPICS)
+    return [""] + list(ALL_SECURITY_TOPICS)
 
 
 def _run_table(rows: list[dict[str, Any]]) -> list[list[Any]]:

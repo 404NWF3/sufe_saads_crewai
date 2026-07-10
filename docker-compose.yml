@@ -1,10 +1,17 @@
 services:
   # Unified Gradio console: intel_agent + ctinexus_kg + live verbose trace.
   #   docker compose up -d mongo web
+  # If pypi.org SSL/timeouts fail during build:
+  #   $env:PIP_INDEX_URL="https://pypi.tuna.tsinghua.edu.cn/simple"
+  #   $env:PIP_TRUSTED_HOST="pypi.tuna.tsinghua.edu.cn"
+  #   docker compose up -d --build web
   web:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-}
+        PIP_TRUSTED_HOST: ${PIP_TRUSTED_HOST:-}
     env_file:
       - .env
     environment:
@@ -20,6 +27,8 @@ services:
     volumes:
       - ./data:/app/data
       - ./ctinexus_output:/app/ctinexus_output
+      # Live code: rebuild only when Python deps change; avoids re-pip on every edit.
+      - ./backend:/app/backend
     depends_on:
       mongo:
         condition: service_healthy

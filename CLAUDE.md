@@ -26,6 +26,7 @@
 
 ```
 backend/
+├── common/               # 共享常量（仅 topics：Core / Extended）
 ├── intel_agent/          # SDK 采集引擎（0 import ctinexus_kg / src）
 ├── ctinexus_kg/          # item 级 KG（0 import intel_agent / src）
 └── console/              # Gradio：采集 + verbose + KG + Database

@@ -1,30 +1,21 @@
-"""Local topic helpers for KG eligibility (copied, not imported from intel_agent)."""
+"""KG topic helpers — re-export shared taxonomy from ``common.topics``."""
 
 from __future__ import annotations
 
-TARGET_SECURITY_TOPICS = [
-    "prompt injection",
-    "jailbreak",
-    "agent tool abuse",
-    "data leakage",
-    "model supply chain",
-    "rag poisoning",
+from common.topics import (  # noqa: F401
+    ALL_SECURITY_TOPICS,
+    CORE_SECURITY_TOPICS,
+    EXTENDED_SECURITY_TOPICS,
+    TARGET_SECURITY_TOPICS,
+    TOPIC_KEYWORDS,
+    detect_topics,
+)
+
+__all__ = [
+    "ALL_SECURITY_TOPICS",
+    "CORE_SECURITY_TOPICS",
+    "EXTENDED_SECURITY_TOPICS",
+    "TARGET_SECURITY_TOPICS",
+    "TOPIC_KEYWORDS",
+    "detect_topics",
 ]
-
-TOPIC_KEYWORDS: dict[str, tuple[str, ...]] = {
-    "prompt injection": ("prompt injection", "indirect prompt", "instruction injection"),
-    "jailbreak": ("jailbreak", "policy bypass", "guardrail bypass"),
-    "agent tool abuse": ("agent tool", "tool abuse", "plugin abuse", "function calling"),
-    "data leakage": ("data leakage", "secret exfiltration", "training data extraction"),
-    "model supply chain": ("model supply chain", "model artifact", "unsafe model", "pickle"),
-    "rag poisoning": ("rag poisoning", "retrieval poisoning", "knowledge base poisoning"),
-}
-
-
-def detect_topics(text: str) -> list[str]:
-    normalized = text.lower()
-    return [
-        topic
-        for topic, keywords in TOPIC_KEYWORDS.items()
-        if any(keyword in normalized for keyword in keywords)
-    ]

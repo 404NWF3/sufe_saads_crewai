@@ -21,7 +21,7 @@ from .schemas import (
     RawIntelItemBatch,
     SearchQueryPlan,
 )
-from .topics import TARGET_SECURITY_TOPICS, build_gap_query, detect_topics
+from .topics import ALL_SECURITY_TOPICS, CORE_SECURITY_TOPICS, build_gap_query, detect_topics
 
 RELEVANT_SCORE_THRESHOLD = 0.5
 DEFAULT_COVERAGE_QUOTA = 3
@@ -263,7 +263,10 @@ _DEFAULT_SOURCES = ("nvd_cve_api", "arxiv_api", "cisa_kev_json", "osv_dev_api")
 
 def topic_bucket(topics: list[str]) -> str:
     lowered = " ".join(topics).lower()
-    for topic in TARGET_SECURITY_TOPICS:
+    for topic in CORE_SECURITY_TOPICS:
+        if topic in lowered:
+            return topic
+    for topic in ALL_SECURITY_TOPICS:
         if topic in lowered:
             return topic
     return "general"

@@ -130,6 +130,7 @@ class IntelAgentController:
             prompt = render_round_prompt(
                 digest, mode.mode_brief, round_index, max_rounds,
                 focus=mode.focus, time_scope_hint=ctx.time_scope_hint(), open_gaps=open_gaps,
+                max_turns=self.loop.max_turns,
             )
 
             used_agent = engine_available

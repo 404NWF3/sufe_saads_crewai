@@ -9,7 +9,7 @@ from typing import Any
 import gradio as gr
 
 from ctinexus_kg import KgGenerationConfig, generate_for_item, list_kg_ready
-from ctinexus_kg.topics import TARGET_SECURITY_TOPICS
+from ctinexus_kg.topics import ALL_SECURITY_TOPICS
 from intel_agent.store import default_store
 
 from .db_browser import _write_csv
@@ -108,7 +108,7 @@ def refresh_db_ready(
         run_id=run_id or None,
         limit=int(limit or 100),
     )
-    ready = list_kg_ready(docs, config=cfg, target_topics=list(TARGET_SECURITY_TOPICS))
+    ready = list_kg_ready(docs, config=cfg, target_topics=list(ALL_SECURITY_TOPICS))
     choices = [i.item_id for i in ready]
     msg = (
         f"{len(choices)} kg_ready of {len(docs)} queried "
@@ -170,7 +170,7 @@ def generate_batch_from_db(
         run_id=run_id or None,
         limit=int(limit or 20),
     )
-    ready = list_kg_ready(docs, config=cfg, target_topics=list(TARGET_SECURITY_TOPICS))
+    ready = list_kg_ready(docs, config=cfg, target_topics=list(ALL_SECURITY_TOPICS))
     if not ready:
         return "No kg_ready items for the current filters.", []
 

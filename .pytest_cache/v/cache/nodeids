@@ -1,4 +1,9 @@
 [
+  "backend/common/tests/test_topics.py::test_core_extended_partition",
+  "backend/common/tests/test_topics.py::test_detect_topics_hits_core_and_extended",
+  "backend/common/tests/test_topics.py::test_full_mode_coverage_uses_core_only",
+  "backend/common/tests/test_topics.py::test_incremental_focus_accepts_extended",
+  "backend/common/tests/test_topics.py::test_keywords_and_anchors_cover_all_topics",
   "backend/console/tests/test_db_browser.py::test_item_table_flattens_topics",
   "backend/console/tests/test_db_browser.py::test_json_store_query_and_csv",
   "backend/console/tests/test_kg_panel.py::test_kg_config_from_env_defaults",

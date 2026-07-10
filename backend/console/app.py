@@ -15,7 +15,7 @@ from typing import Any, Iterator
 
 import gradio as gr
 
-from ctinexus_kg.topics import TARGET_SECURITY_TOPICS
+from ctinexus_kg.topics import ALL_SECURITY_TOPICS, CORE_SECURITY_TOPICS
 from intel_agent.engine.controller import IntelAgentController
 from intel_agent.engine.modes import FullCollectionMode, IncrementalCollectionMode
 from intel_agent.observability import TraceSink, format_event_line, load_trace_jsonl
@@ -243,8 +243,8 @@ def build_app() -> gr.Blocks:
             with gr.Row():
                 kg_run = gr.Textbox(label="Filter run_id (optional)")
                 kg_topic = gr.Dropdown(
-                    label="Topic",
-                    choices=[""] + list(TARGET_SECURITY_TOPICS),
+                    label="Topic (Core + Extended)",
+                    choices=[""] + list(ALL_SECURITY_TOPICS),
                     value="",
                 )
                 kg_source = gr.Textbox(label="Source filter", placeholder="nvd_cve_api")
@@ -528,7 +528,8 @@ def build_app() -> gr.Blocks:
             app.load(memory_status, outputs=[mem_status])
 
         gr.Markdown(
-            f"_Topics: {', '.join(TARGET_SECURITY_TOPICS)}_ · "
+            f"_Coverage Core: {len(CORE_SECURITY_TOPICS)} topics · "
+            f"Searchable All: {len(ALL_SECURITY_TOPICS)} · "
             f"_Server time {datetime.now(timezone.utc).isoformat()}_"
         )
     return app
