@@ -6,3 +6,7 @@ __pycache__/
 
 # base KG pipeline outputs
 base_kg/output/
+
+/.agents
+/.cursor
+

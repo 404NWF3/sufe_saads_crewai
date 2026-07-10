@@ -1,0 +1,36 @@
+# Self-contained image for the backend/intel_agent collection engine.
+# The engine imports nothing from src/, so only backend/intel_agent + its three
+# runtime deps (claude-agent-sdk / pydantic / pymongo) are needed.
+FROM python:3.12-slim-bookworm
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app/backend
+
+# Node.js + Claude Code CLI. The Agent SDK spawns the `claude` CLI as a
+# subprocess; without it the engine still runs but silently degrades to the
+# deterministic rules fallback (no agentic loop). Installing it here keeps the
+# SDK path working inside the container.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl ca-certificates \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && npm install -g @anthropic-ai/claude-code \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir \
+        "claude-agent-sdk>=0.2.113" \
+        "pydantic>=2.7" \
+        "pymongo>=4.6"
+
+COPY backend/intel_agent ./backend/intel_agent
+
+# Runs one collection task and exits (it is a batch job, not a server).
+# Override the args to pick a mode:
+#   docker compose run --rm intel-agent incremental --focus jailbreak --window-days 7
+ENTRYPOINT ["python", "-m", "intel_agent.cli"]
+CMD ["full", "--verbose"]

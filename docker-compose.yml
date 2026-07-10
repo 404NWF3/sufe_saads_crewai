@@ -12,6 +12,47 @@ services:
       - ./data:/app/data
       - ./ctinexus_output:/app/ctinexus_output
 
+  # backend/intel_agent collection engine (batch job). Runs one task and exits.
+  #   docker compose run --rm intel-agent full --verbose
+  #   docker compose run --rm intel-agent incremental --focus jailbreak --window-days 7
+  # `profiles` keeps it out of a plain `docker compose up`; `run` still starts it
+  # (and its mongo dependency) on demand.
+  intel-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile.intel_agent
+    profiles: ["intel"]
+    env_file:
+      - .env
+    environment:
+      # Inside the compose network, reach Mongo by service name (the .env value
+      # mongodb://localhost:27017 is for host-side `uv run intel-agent`).
+      INTEL_MONGO_URI: mongodb://mongo:27017
+      INTEL_MONGO_DB: ${INTEL_MONGO_DB:-intel_agent}
+    depends_on:
+      mongo:
+        condition: service_healthy
+    volumes:
+      - ./data:/app/data
+    command: ["full", "--verbose"]
+
+  # Intel history store (backend/intel_agent). Enable it in .env with
+  # INTEL_MONGO_URI=mongodb://mongo:27017 (in-container) or mongodb://localhost:27017
+  # (host). Start it alone with: docker compose up -d mongo
+  mongo:
+    image: mongo:7
+    environment:
+      MONGO_INITDB_DATABASE: ${INTEL_MONGO_DB:-intel_agent}
+    ports:
+      - "27017:27017"
+    volumes:
+      - ./data/mongo:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+
   # Base KG graph store (base_kg/ pipeline). Independent from the crew service;
   # start it alone with: docker compose up -d neo4j
   neo4j:

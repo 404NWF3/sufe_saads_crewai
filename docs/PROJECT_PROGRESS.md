@@ -1,6 +1,6 @@
 # SUFE SAADS CrewAI 项目进展说明
 
-更新时间：2026-06-13
+更新时间：2026-07-10（§7 追加 intel_agent 重构进展；§1–6 仍描述 legacy CrewAI/Web 主线，待整体改写）
 
 ## 1. 当前技术栈
 
@@ -164,3 +164,23 @@ P0-P3 的代码与评估资产已落地，详见 ROADMAP 第 10 章状态标注�
 - **测试**：新增 `test_intel_rules` / `test_sdk_loop` / `test_bandit` / `test_relevance` / `test_agent_runtime`（含 provider 解析）/ `test_engine_factory`，全套 77 用例通过；SDK 引擎的决策路径与 fallback 路径均有确定性单测（fake runner，不耗 API）。
 
 **下一步（P3 收尾）**：① 按 `tests/eval_goals.json` 跑完整 A/B（`uv run python scripts/eval_ab.py`，7 目标 × 2 引擎 × 3 重复，消耗真实配额）与人工抽检；② 达标后把 `INTEL_ENGINE` 默认切 `sdk`（P3 验收）；③ 评审通过后执行 P4 移除 CrewAI。SDK 引擎当前为"结构化决策 + 控制器执行"的混合模式；DeepSeek 端点工具调用可靠性 100% 已在技术上解锁完全 agentic 采集会话（`tools_mcp`/hooks 就绪），是否切换待 A/B 数据评审。
+
+## 7. backend/intel_agent 重构进展（2026-07-10）
+
+情报采集主线已迁移到自包含模块 `backend/intel_agent/`（Claude Agent SDK + loop-engineering + Playbook 自演化），对 `src/sufe_saads_crewai` **零依赖**。本轮会话完成验证、可观测性与持久化落地。完整纪要见 [SESSION_2026-07-10_intel_agent_maturity.md](SESSION_2026-07-10_intel_agent_maturity.md)。
+
+### 7.1 已交付
+
+- **引擎与 CLI**：`uv run intel-agent full|incremental|latest`；全量/增量两种模式；确定性 rules fallback。
+- **真实采集验证**：一次 bootstrap 运行示例——2 轮、255 条去重情报、20 次源调用；6 话题覆盖 5 个，缺口 `agent tool abuse`。
+- **`--verbose`**：`observability.py` → 控制台 + `data/intel_agent/traces/<run_id>.jsonl`。
+- **MongoDB 历史库**：`mongo_store.py` + `store.default_store()`；`runs`（每任务）+ `items`（`item_id` 全局去重）；`mongomock` 离线单测。
+- **Docker**：`Dockerfile.intel_agent` + compose `mongo` / `intel-agent`（`profiles: ["intel"]`）。
+- **单测**：`backend/intel_agent/tests` 约 29 项（用户本地已确认 24+ 通过）。
+
+### 7.2 尚未完成（相对旧 Web/KG 主线）
+
+- Gradio Web 仍读 JSON `latest.json`，未接 Mongo `default_store()`。
+- `docs/intel_agent_design.md`、ROADMAP Phase 4 文档更新、A/B 脚本对接新引擎。
+- Legacy `src/sufe_saads_crewai/intel/` 未删除；KG 管线未接入新引擎。
+- Mongo 生产鉴权、Web 引擎切换与 playbook 人工审核 UI（路线图 Phase 5）。

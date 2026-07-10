@@ -9,6 +9,9 @@ WORKDIR /app
 
 COPY pyproject.toml README.md ./
 COPY src ./src
+# pyproject's wheel packages list includes backend/intel_agent, so hatchling
+# needs it present in the build context even though this image runs the web app.
+COPY backend ./backend
 
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir .

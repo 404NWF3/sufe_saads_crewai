@@ -1,14 +1,8 @@
 {
-  "run_id": "real-7eb09b4b",
+  "run_id": "real-intel-agent-bootstrap-20260709T062155Z",
   "status": "succeeded",
-  "path": "real-7eb09b4b.json",
-  "saved_at": "2026-06-11T03:27:39.050211+00:00",
-  "raw_items": 768,
-  "rounds": 50,
-  "knowledge_graphs": {
-    "total": 0,
-    "succeeded": 0,
-    "failed": 0,
-    "skipped": 0
-  }
+  "path": "real-intel-agent-bootstrap-20260709T062155Z.json",
+  "saved_at": "2026-07-09T06:29:44.194541+00:00",
+  "raw_items": 378,
+  "rounds": 3
 }

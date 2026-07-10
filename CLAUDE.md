@@ -15,10 +15,16 @@
 - CrewAI `1.14.4`（项目类型 crew）、CTINexus `0.2.1`、Gradio 5.x。
 - 常用入口（定义在 `pyproject.toml [project.scripts]`）：
   - `uv run web` — 启动 Gradio 控制台（默认 8000 端口）
-  - `uv run run_crew` 或 `crewai run` — 命令行情报采集
+  - `uv run run_crew` 或 `crewai run` — 命令行情报采集（旧 CrewAI 引擎，legacy）
   - `uv run latest_intel` — 查看最近一次采集结果
-- 测试：`uv run pytest tests/`。修改 intel/kg/schemas/web 模块后请跑对应测试文件。
-- Docker 部署：`docker compose up --build`，挂载 `./data` 与 `./ctinexus_output`。
+  - **`uv run intel-agent full` / `uv run intel-agent incremental` / `uv run intel-agent latest`** —
+    新的自包含 Claude Agent SDK 情报采集引擎（`backend/intel_agent/`，见下文「情报采集重构」）。
+    加 `--verbose` 实时打印模型文本/工具调用并落 `data/intel_agent/traces/<run_id>.jsonl`。
+- 测试：`uv run pytest tests/`（旧包）与 `uv run pytest backend/intel_agent/tests`（新引擎，离线，当前约 29 项）。修改 intel/kg/schemas/web 模块后请跑对应测试文件。
+- 依赖同步（新引擎）：`uv sync --group agentsdk --group intelagent`（含 `claude-agent-sdk`、`pydantic`、`pymongo`）。
+- Docker 部署：
+  - Web（旧引擎）：`docker compose up --build`，挂载 `./data` 与 `./ctinexus_output`。
+  - intel_agent + MongoDB：`docker compose up -d mongo` 起库；`docker compose run --rm intel-agent full --verbose` 跑一次采集（镜像 `Dockerfile.intel_agent`，`profiles:["intel"]`，容器内自动用 `mongodb://mongo:27017`）。
 - 环境变量见 `.env.example`；KG 适配层 API key 回退顺序：`CTINEXUS_*` → `OPENAI_*` → `GLM_*`。
 
 ## 代码结构要点
@@ -37,14 +43,42 @@ src/sufe_saads_crewai/
 └── crew.py / main.py
 ```
 
+> **情报采集重构（2026-07，重要）**：情报采集主线已迁移到全新的**自包含**模块
+> `backend/intel_agent/`，以 **Claude Agent SDK** 为核心（loop-engineering + self-evolving），
+> **对 `src/sufe_saads_crewai` 零依赖**（自带 schema、源客户端、三层相关性、持久化、技巧库）。
+> 老的 `src/sufe_saads_crewai/intel/`（`real_loop.py` / `adaptive_loop.py` / `sdk_loop.py` 等）、
+> `crew.py`、`config/*.yaml`、`tools/registered_source_tools.py` 均视为 **legacy**：可随时删除而不影响
+> 新引擎运行；写新功能一律进 `backend/intel_agent/`，不要再改老 intel 模块。KG（`kg/`）、Web
+> （`web/`）、`base_kg/` 暂保留但不被新引擎依赖。模块结构、两种采集模式与调参见
+> `backend/intel_agent/README.md`。
+
+```
+backend/intel_agent/               # 自包含 SDK 情报采集引擎（0 import src/）
+├── schemas.py / topics.py / analysis.py   # 自带模型、话题、确定性分析层
+├── sources.py                     # NVD / arXiv / CISA KEV / OSV 客户端（含重试）
+├── relevance.py                   # 三层相关性：rule → embedding → flash LLM
+├── persistence.py                 # JSON 存储：data/intel_runs/<run_id>.json + latest.json
+├── mongo_store.py + store.py       # MongoDB 历史库（runs + 全局去重 items）+ 存储工厂
+├── observability.py               # --verbose 追踪（控制台 + JSONL transcript）
+├── runtime/                       # provider 解析、options、tool-forcing 结构化决策
+├── memory/                        # 自演化技巧库 Playbook（upsert/衰减/召回/harvest）
+├── tools/ + hooks.py              # 轮内 @tool（源搜索/召回/记录/收尾）+ 审计钩子
+├── agent/                         # 每轮一个 SDK 会话 + 终止 critic
+├── engine/                        # 采集模式(full/incremental) + 编排 controller + digest + fallback
+├── cli.py                         # intel-agent full / incremental / latest
+└── tests/                         # 离线单测（注入 fake runner/embedder）
+```
+
 数据与输出约定：
 
 - 采集结果：`data/intel_runs/<run_id>.json`（含 `blackboard.raw_items`、`query_history`、`coverage_gaps`、`reflection_notes`、`item_knowledge_graphs`）与 `latest.json`。
+- **intel_agent 历史库（MongoDB，可选）**：设置 `INTEL_MONGO_URI`（或 `INTEL_MONGO_ENABLED=1`）后，`backend/intel_agent` 落库到 MongoDB——`runs` 集合每次采集任务一份文档，`items` 集合以 `item_id` 作 `_id` 做全局去重（同一情报永不重复入库，多轮出现只 upsert 并把 run 追加到 `run_ids` 溯源数组）。未配置时回退到上面的 JSON 文件（离线/测试零依赖）。`docker compose up -d mongo` 起本地库；宿主机/DBeaver 连 `localhost:27017`、库名 `intel_agent`、无鉴权；容器内用 `mongodb://mongo:27017`。
+- **intel_agent verbose 追踪**：`--verbose` 会实时打印模型文本/工具调用，并把完整事件流写到 `data/intel_agent/traces/<run_id>.jsonl`。
 - item 级 KG：`data/intel_runs/<run_id>_kg/<item_id>.json` + `manifest.json`；可视化 HTML 在 `ctinexus_output/`。
 - **base KG 源语料**：`data/kg-source/`，约 470 篇 PDF，分五类——`arxiv/`（322 篇）、`ICML/`（100 篇）、`OWASP/`（10 篇，LLM Top 10 系列）、`其他/`（NIST AI RMF 等 3 篇）、`知网/`（34 篇中文文献）。注意语料是中英混合的，pipeline 设计需考虑双语处理。
 - KG 生成只把 item 的 `raw_text`（为空则 `summary`）传给 CTINexus，title/source/URI/metadata 一律不进入抽取文本，`source_uri` 仅留在本项目记录中用于溯源。
 
-详细的当前进展与已知风险见 `docs/PROJECT_PROGRESS.md`。
+详细的当前进展与已知风险见 `docs/PROJECT_PROGRESS.md`；**2026-07-10 intel_agent 验证/可观测性/Mongo/Docker 会话纪要**见 `docs/SESSION_2026-07-10_intel_agent_maturity.md`。
 
 ## 发展路线图
 
@@ -95,3 +129,69 @@ src/sufe_saads_crewai/
 - KG 生成失败不得影响情报采集主流程——记录 failed record 并继续，这是既有设计原则。
 - 新增 Pydantic 模型放在 `schemas/` 下并补充 `tests/test_schemas.py`。
 - 改动 CrewAI 相关代码前，按 `AGENTS.md` 要求核对已安装版本（`1.14.4`）与官方文档，不要凭训练数据中的旧 API 写代码。
+
+# CLAUDE.md
+
+Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
+
+**Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
+
+## 1. Think Before Coding
+
+**Don't assume. Don't hide confusion. Surface tradeoffs.**
+
+Before implementing:
+- State your assumptions explicitly. If uncertain, ask.
+- If multiple interpretations exist, present them - don't pick silently.
+- If a simpler approach exists, say so. Push back when warranted.
+- If something is unclear, stop. Name what's confusing. Ask.
+
+## 2. Simplicity First
+
+**Minimum code that solves the problem. Nothing speculative.**
+
+- No features beyond what was asked.
+- No abstractions for single-use code.
+- No "flexibility" or "configurability" that wasn't requested.
+- No error handling for impossible scenarios.
+- If you write 200 lines and it could be 50, rewrite it.
+
+Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
+
+## 3. Surgical Changes
+
+**Touch only what you must. Clean up only your own mess.**
+
+When editing existing code:
+- Don't "improve" adjacent code, comments, or formatting.
+- Don't refactor things that aren't broken.
+- Match existing style, even if you'd do it differently.
+- If you notice unrelated dead code, mention it - don't delete it.
+
+When your changes create orphans:
+- Remove imports/variables/functions that YOUR changes made unused.
+- Don't remove pre-existing dead code unless asked.
+
+The test: Every changed line should trace directly to the user's request.
+
+## 4. Goal-Driven Execution
+
+**Define success criteria. Loop until verified.**
+
+Transform tasks into verifiable goals:
+- "Add validation" → "Write tests for invalid inputs, then make them pass"
+- "Fix the bug" → "Write a test that reproduces it, then make it pass"
+- "Refactor X" → "Ensure tests pass before and after"
+
+For multi-step tasks, state a brief plan:
+```
+1. [Step] → verify: [check]
+2. [Step] → verify: [check]
+3. [Step] → verify: [check]
+```
+
+Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
+
+---
+
+**These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.

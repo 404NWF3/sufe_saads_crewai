@@ -1,5 +1,10 @@
 {
   "enabledPlugins": {
-    "academic-research-skills@academic-research-skills": true
+    "academic-research-skills@academic-research-skills": true,
+    "laravel-boost@claude-plugins-official": true,
+    "agent-sdk-dev@claude-plugins-official": true,
+    "skill-creator@claude-plugins-official": true,
+    "code-review@claude-plugins-official": true,
+    "ralph-loop@claude-plugins-official": true
   }
 }
