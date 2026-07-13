@@ -7,8 +7,6 @@ every decision input is reproducible.
 
 from __future__ import annotations
 
-from typing import Any
-
 from ..analysis import new_relevant_per_call, topic_coverage_counts
 from ..schemas import IntelRunBlackboard
 
@@ -38,13 +36,49 @@ def render_digest(
         f"| api_calls_used {used}{cap}"
     )
 
-    counts = topic_coverage_counts(blackboard.raw_items, target_topics)
-    lines.append("")
-    lines.append(f"Coverage vs quota={quota} (relevant items per topic):")
-    for topic in target_topics:
-        got = counts.get(topic, 0)
-        flag = "OK" if got >= quota else "GAP"
-        lines.append(f"- {topic}: {got}/{quota} [{flag}]")
+    if blackboard.collection_strategy == "adaptive":
+        lines.append("")
+        lines.append("Core CorpusGaps (Extended topics have no coverage target):")
+        for gap in blackboard.corpus_gaps[:24]:
+            lines.append(
+                f"- {gap.topic} | {gap.evidence_channel} | "
+                f"effective={gap.effective_evidence:.2f}/{gap.target_evidence:.2f} "
+                f"| priority={gap.priority_score:.2f} | {gap.status}"
+            )
+        open_run_gaps = [gap for gap in blackboard.run_gaps if gap.status == "open"]
+        if open_run_gaps:
+            lines.append("")
+            lines.append("Open RunGaps:")
+            for gap in open_run_gaps[:12]:
+                lines.append(
+                    f"- {gap.gap_id} | {gap.gap_type} | source={gap.source_name or '-'} "
+                    f"| priority={gap.priority} | {gap.rationale}"
+                )
+        if blackboard.query_outcomes:
+            lines.append("")
+            lines.append("Recent call outcomes: source | intent | raw/new/relevant | dup/noise | reward")
+            for outcome in blackboard.query_outcomes[-10:]:
+                lines.append(
+                    f"- {outcome.source_name} | {outcome.query_intent} | "
+                    f"{outcome.raw_count}/{outcome.new_count}/{outcome.relevant_new} | "
+                    f"{outcome.duplicate_count}/{outcome.noise_count} | {outcome.reward:.3f}"
+                )
+        if blackboard.extended_trends:
+            lines.append("")
+            lines.append("Extended-topic trends (discovery only; never coverage gaps):")
+            for topic, trend in list(blackboard.extended_trends.items())[:8]:
+                lines.append(
+                    f"- {topic}: recent30={trend.get('recent_30d', 0):.0f}, "
+                    f"burst={trend.get('burst_ratio', 0):.2f}"
+                )
+    else:
+        counts = topic_coverage_counts(blackboard.raw_items, target_topics)
+        lines.append("")
+        lines.append(f"Coverage vs quota={quota} (relevant items per topic):")
+        for topic in target_topics:
+            got = counts.get(topic, 0)
+            flag = "OK" if got >= quota else "GAP"
+            lines.append(f"- {topic}: {got}/{quota} [{flag}]")
 
     history = blackboard.query_history
     if history:

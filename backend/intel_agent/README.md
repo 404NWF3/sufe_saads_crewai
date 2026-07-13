@@ -20,8 +20,8 @@ backend/intel_agent/
 ├── runtime/            # SDK provider 解析、options 构建、tool-forcing 结构化决策
 ├── memory/             # 自演化技巧库 Playbook（upsert/衰减/召回/harvest）
 ├── tools/              # 轮内 @tool：源搜索 + recall/record + submit_round_summary
-├── hooks.py            # 预算/去重的审计层（tool handler 才是权威控制面）
-├── agent/              # 每轮一个 SDK 会话（agentic loop）+ 终止 critic
+├── hooks.py            # 审批/预算/去重/时间窗的审计层（handler 同步复验）
+├── agent/              # adaptive incremental 单 run 连续会话 + 隔离终止 critic
 ├── engine/             # 采集模式、轮次编排 controller、上下文 digest、rules fallback
 ├── cli.py              # intel-agent full / incremental / latest
 └── tests/              # 离线单测（注入 fake runner/embedder，无需联网）
@@ -33,8 +33,9 @@ backend/intel_agent/
   CWE/CVSS/时间窗、arXiv 字段与布尔、OSV 生态/包等高级算子），观察产出再决定下一步。
 - **self-evolving**：高产出的算子组合被 harvest 成**自然语言技巧**写入 Playbook，下次运行前
   按语义相似度 + 历史收益召回注入上下文；持续不产出的技巧会衰减、废弃。
-- **loop-engineering**：控制器负责预算、去重、相关性标注、覆盖配额与停滞检测；终止由
-  critic（tool-forcing 决策）判断边际收益，并叠加 max_rounds/stall/coverage 安全阀。
+- **loop-engineering**：full 保留 quota；incremental v2 从历史库计算 Core CorpusGap，
+  用 RunGap、单调用真实收益和 UCB 审批查询。critic 提供解释，预算、checkpoint、饱和条件
+  与 rules fallback 由确定性控制面执行。
 - **三层 fallback**：SDK 不可用 → 确定性 rules 轮次；结构化决策失败 → 规则兜底；相关性
   在线过滤失败 → 退回规则分。KG/情报主流程互不阻断。
 
@@ -45,21 +46,34 @@ backend/intel_agent/
   ```bash
   uv run intel-agent full --max-rounds 6 --max-api-calls 40
   ```
-- **incremental（增量）**：单一 focus（可为 Core 或 Extended）+ 时间窗；下界默认 watermark。
+- **incremental（增量）**：默认启用 adaptive v2。18 个 Core 按 research / vulnerability
+  证据渠道计算软覆盖缺口；15 个 Extended 可搜索和标注，但不设 coverage quota。
+  NVD/arXiv 使用独立 checkpoint，并默认重叠回看 72 小时；OSV 只做实体/包定向确认。
   ```bash
   uv run intel-agent incremental --focus "agent tool abuse" --window-days 1
   uv run intel-agent incremental --focus "model extraction" --since 2026-07-01
   ```
 - 查看最近一次结果：`uv run intel-agent latest`
 
+回滚到原增量策略：`INTEL_INCREMENTAL_STRATEGY=legacy`。离线比较 UCB 与轮询基线：
+
+```bash
+uv run python scripts/bandit_replay.py
+```
+
 ## 运行前提
 
 ```bash
-uv sync --group agentsdk --group intelagent   # claude-agent-sdk + pydantic + pymongo
+uv sync --group agentsdk --group intelagent --group ctinexuskg --group web --group dev
 ```
 在 `.env` 配置 Anthropic 兼容端点（DeepSeek 或 GLM Coding Plan），见根目录 `.env.example`
 中 `INTEL_SDK_PROVIDER` / `DEEPSEEK_*` / `GLM_*` 与 `backend/intel_agent` 段的调参项。
 未配置密钥时会自动降级为**确定性 rules 采集**，仍可产出结果。
+
+adaptive incremental 在一个 run 内复用同一个 `ClaudeSDKClient`，捕获 session ID，并按
+resume → 携带当前 round 状态的新会话 → legacy rules 的顺序恢复。SDK options 显式禁用
+内建工具和文件系统 settings，仅允许进程内 MCP 白名单；因此 `bypassPermissions` 不会暴露
+Bash、Read、Write 或 Edit。`full` 和 `INTEL_INCREMENTAL_STRATEGY=legacy` 保持原有隔离会话/配额路径。
 
 ## 测试
 
@@ -81,9 +95,9 @@ uv run pytest backend/intel_agent/tests -q
 把每次采集任务沉淀进数据库，并保证情报不重复：
 
 ```bash
-docker compose up -d mongo                     # 起本地 MongoDB
+docker compose up -d mongo                     # 起 Docker Mongo（宿主机端口 27018）
 # .env 里设置（见 .env.example）：
-#   INTEL_MONGO_URI=mongodb://localhost:27017
+#   INTEL_MONGO_URI=mongodb://localhost:27018
 #   INTEL_MONGO_DB=intel_agent
 uv run intel-agent full --verbose              # 自动落库 MongoDB
 uv run intel-agent latest                      # 从当前存储读取最近一次
@@ -98,17 +112,18 @@ uv run intel-agent latest                      # 从当前存储读取最近一�
 
 | 场景 | 做法 |
 |------|------|
-| DBeaver / 插件 | Host `localhost`，Port `27017`，库 `intel_agent`，无鉴权（**不要**用 Host=`mongo`） |
+| DBeaver / 插件 | Host `localhost`，Port **`27018`**，库 `intel_agent`，无鉴权（**不要**用 Host=`mongo`，也**不要**用 27017——那是本机 mongod） |
 | 容器内交互 | `docker exec -it sufe_saads_crewai-mongo-1 mongosh intel_agent` |
 | 全量 CSV | 在**宿主机** PowerShell/bash 跑 `mongoexport`（见根 `README.md`）；**不要**在 `mongosh>` 提示符里贴 `docker` 命令 |
 | UI | Gradio **Database** 页签：过滤查询 + 下载 CSV → `data/exports/` |
+| 存储位置 | Docker 命名卷 `mongo_data`；`data/mongo` 仅为旧 bind-mount 遗留，勿再挂载 |
 
 ## Docker
 
 ### 统一控制台（推荐）
 
 ```bash
-docker compose up -d --build mongo web    # Gradio :8000 + Mongo
+docker compose up -d --build mongo web    # Gradio :8000 + Mongo :27018
 ```
 
 统一镜像（`Dockerfile`）含 intel_agent + ctinexus_kg + Gradio + Node/`claude` CLI。compose 设置 `IS_SANDBOX=1`：Claude Code 禁止 root 下 `bypassPermissions`，无此变量会 `ProcessError` 并退化 rules fallback。
@@ -121,7 +136,7 @@ docker compose run --rm intel-agent full --verbose
 docker compose run --rm intel-agent incremental --focus jailbreak --window-days 7
 ```
 
-- 容器内 Mongo URI 由 compose 覆盖为 `mongodb://mongo:27017`；宿主机 `uv run` 用 `.env` 的 `localhost`。
+- 容器内 Mongo URI 由 compose 覆盖为 `mongodb://mongo:27017`；宿主机 `uv run` 用 `.env` 的 `mongodb://localhost:27018`。
 - `intel-agent` 挂 `profiles: ["intel"]`，普通 `up` 不会启动它。
 
 ## 与 ctinexus_kg / Gradio 的边界

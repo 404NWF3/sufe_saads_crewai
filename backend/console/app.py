@@ -142,6 +142,14 @@ def _run_collection(
         "items": len(bb.raw_items),
         "api_calls_used": bb.metrics.api_calls_used,
         "open_gaps": [g.taxonomy_or_component for g in bb.coverage_gaps],
+        "stop_reason": bb.stop_reason,
+        "core_gap_count": sum(1 for g in bb.corpus_gaps if g.status == "open"),
+        "extended_item_count": sum(
+            1
+            for item in bb.raw_items
+            if any(topic not in CORE_SECURITY_TOPICS for topic in item.metadata.get("topics", []))
+        ),
+        "candidate_topic_count": len(bb.candidate_topics),
         "trace_path": str(DEFAULT_TRACE_DIR / f"{bb.run_id}.jsonl"),
     }
     lines.append(f"\n[done] run={bb.run_id} items={len(bb.raw_items)}")
@@ -305,6 +313,10 @@ def build_app() -> gr.Blocks:
                         "rounds",
                         "run_goal",
                         "coverage_gaps",
+                        "stop_reason",
+                        "core_gap_count",
+                        "extended_item_count",
+                        "candidate_topic_count",
                         "engine",
                     ],
                     label="Runs",

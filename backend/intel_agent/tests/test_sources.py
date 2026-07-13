@@ -81,6 +81,14 @@ def test_build_nvd_query_params_prefers_cve_id():
     assert "noRejected" in params
 
 
+def test_nvd_query_params_support_page_offset():
+    params = sources._build_nvd_query_params(
+        "agent tool abuse", 20, None, None, None, False, None, False, None, None, True,
+        start_index=40,
+    )
+    assert params["startIndex"] == "40"
+
+
 def test_build_arxiv_search_query_uses_categories():
     query = sources.build_arxiv_search_query("jailbreak", ["jailbreak"])
     assert "cat:cs.CR" in query

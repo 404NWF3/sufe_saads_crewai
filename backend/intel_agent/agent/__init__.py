@@ -2,7 +2,16 @@
 
 from __future__ import annotations
 
-from .loop import IntelAgentLoop, RoundSessionResult
-from .critic import decide_termination
-
 __all__ = ["IntelAgentLoop", "RoundSessionResult", "decide_termination"]
+
+
+def __getattr__(name: str):
+    if name in {"IntelAgentLoop", "RoundSessionResult"}:
+        from .loop import IntelAgentLoop, RoundSessionResult
+
+        return {"IntelAgentLoop": IntelAgentLoop, "RoundSessionResult": RoundSessionResult}[name]
+    if name == "decide_termination":
+        from .critic import decide_termination
+
+        return decide_termination
+    raise AttributeError(name)

@@ -172,6 +172,9 @@ P0-P3 的代码与评估资产已落地，详见 ROADMAP 第 10 章状态标注�
 ### 7.1 已交付（采集引擎）
 
 - **引擎与 CLI**：`uv run intel-agent full|incremental|latest`；全量/增量；rules fallback。
+- **智能增量 v2**：18 Core 的历史 CorpusGap + 当前 RunGap、单来源 checkpoint、真实
+  duplicate/noise 归因、UCB 查询审批与单 run `ClaudeSDKClient` 连续会话；15 Extended
+  只搜索/标注/趋势发现，不进入覆盖率和硬停止条件。
 - **真实采集验证**：bootstrap 示例——多轮、数百条去重情报、源 API 预算内运行。
 - **`--verbose`**：`observability.py` → 控制台 + `data/intel_agent/traces/<run_id>.jsonl`；`on_event` 供 UI。
 - **MongoDB 历史库**：`mongo_store.py` + `store.default_store()`；`runs` + `items`（`item_id` 全局去重）；查询 API 供 Database 面板。

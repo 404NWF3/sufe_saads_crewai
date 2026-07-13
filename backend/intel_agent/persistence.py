@@ -14,7 +14,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from .schemas import IntelRunBlackboard, RawIntelItem, RawIntelItemBatch
+from .schemas import IntelRunBlackboard, RawIntelItem, RawIntelItemBatch, SourceCheckpoint
+from .topics import EXTENDED_SECURITY_TOPICS
 
 DEFAULT_INTEL_RUN_DIR = Path("data") / "intel_runs"
 LATEST_INDEX_NAME = "latest.json"
@@ -46,7 +47,7 @@ class JsonIntelRunStore:
         saved_at = _utcnow_iso()
         path = self.run_path(blackboard.run_id)
         payload = {
-            "schema_version": 2,
+            "schema_version": 3,
             "run_id": blackboard.run_id,
             "status": status,
             "saved_at": saved_at,
@@ -106,6 +107,21 @@ class JsonIntelRunStore:
                 continue
         return boards
 
+    def load_corpus_items(self) -> list[RawIntelItem]:
+        """Load the complete JSON corpus once, de-duplicated by natural item id."""
+        by_id: dict[str, RawIntelItem] = {}
+        for blackboard in reversed(self.load_all_blackboards(limit=100_000)):
+            for item in blackboard.raw_items:
+                by_id[item.item_id] = item
+        return list(by_id.values())
+
+    def load_source_checkpoints(self) -> list[SourceCheckpoint]:
+        latest: dict[str, SourceCheckpoint] = {}
+        for blackboard in self.load_all_blackboards(limit=100_000):
+            for checkpoint in blackboard.source_checkpoints:
+                latest.setdefault(checkpoint.source_name, checkpoint)
+        return list(latest.values())
+
     def format_latest_intel(self, limit: int = 20) -> str:
         payload = self.load_latest_payload()
         if not payload:
@@ -153,6 +169,10 @@ class JsonIntelRunStore:
                     "rounds": summary.get("rounds", len(bb.get("query_history") or [])),
                     "run_goal": summary.get("run_goal") or bb.get("run_goal"),
                     "coverage_gaps": ", ".join(summary.get("coverage_gaps_remaining") or []),
+                    "stop_reason": summary.get("stop_reason"),
+                    "core_gap_count": summary.get("core_gap_count", 0),
+                    "extended_item_count": summary.get("extended_item_count", 0),
+                    "candidate_topic_count": summary.get("candidate_topic_count", 0),
                     "engine": payload.get("engine"),
                 }
             )
@@ -331,6 +351,14 @@ class JsonIntelRunStore:
             "coverage_gaps_remaining": [
                 gap.taxonomy_or_component for gap in blackboard.coverage_gaps
             ],
+            "stop_reason": blackboard.stop_reason,
+            "core_gap_count": sum(1 for gap in blackboard.corpus_gaps if gap.status == "open"),
+            "extended_item_count": sum(
+                1
+                for item in blackboard.raw_items
+                if set(item.metadata.get("topics") or []) & set(EXTENDED_SECURITY_TOPICS)
+            ),
+            "candidate_topic_count": len(blackboard.candidate_topics),
             "last_action": (
                 blackboard.action_history[-1].action_type
                 if blackboard.action_history else None

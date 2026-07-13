@@ -148,10 +148,12 @@ def build_options(
     mcp_servers: dict[str, Any] | None = None,
     allowed_tools: list[str] | None = None,
     hooks: dict[str, Any] | None = None,
+    resume: str | None = None,
 ) -> Any:
     from claude_agent_sdk import ClaudeAgentOptions
 
     return ClaudeAgentOptions(
+        tools=[],
         model=model or main_model(),
         env=anthropic_env(),
         permission_mode="bypassPermissions",
@@ -161,4 +163,6 @@ def build_options(
         mcp_servers=mcp_servers or {},
         allowed_tools=allowed_tools or [],
         hooks=hooks,
+        resume=resume,
+        include_hook_events=True,
     )

@@ -53,16 +53,24 @@ services:
       - ./data:/app/data
     command: ["full", "--verbose"]
 
+  # Host port 27018 avoids clashing with a local mongod on 27017.
+  # Inside the compose network, services still use mongodb://mongo:27017.
+  # Named volume only — never bind-mount ./data/mongo (cloud sync sidecars
+  # like *.baiduyun* break WiredTiger). Legacy files in ./data/mongo are
+  # archival; migrate with mongodump/mongorestore if needed.
   mongo:
     image: mongo:7
     environment:
       MONGO_INITDB_DATABASE: ${INTEL_MONGO_DB:-intel_agent}
     ports:
-      - "27017:27017"
+      - "${INTEL_MONGO_HOST_PORT:-27018}:27017"
     volumes:
-      - ./data/mongo:/data/db
+      - mongo_data:/data/db
     healthcheck:
       test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
       interval: 15s
       timeout: 10s
       retries: 10
+
+volumes:
+  mongo_data:

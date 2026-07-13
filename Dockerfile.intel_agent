@@ -24,10 +24,11 @@ WORKDIR /app
 
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir \
-        "claude-agent-sdk>=0.2.113" \
+        "claude-agent-sdk>=0.2.115,<0.3" \
         "pydantic>=2.7" \
         "pymongo>=4.6"
 
+COPY backend/common ./backend/common
 COPY backend/intel_agent ./backend/intel_agent
 
 # Runs one collection task and exits (it is a batch job, not a server).

@@ -8,13 +8,26 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 
 from ..analysis import topic_bucket
 from ..agent.system_prompt import FULL_MODE_BRIEF, INCREMENTAL_MODE_BRIEF
 from ..persistence import JsonIntelRunStore
+from ..schemas import RawIntelItem, SourceCheckpoint
 from ..topics import ALL_SECURITY_TOPICS, CORE_SECURITY_TOPICS
+
+INCREMENTAL_OVERLAP_HOURS = 72
+_CHECKPOINTED_SOURCES = ("nvd_cve_api", "arxiv_api")
+
+
+def incremental_overlap_hours() -> int:
+    raw = os.getenv("INTEL_INCREMENTAL_OVERLAP_HOURS", str(INCREMENTAL_OVERLAP_HOURS))
+    try:
+        return max(0, int(raw))
+    except ValueError:
+        return INCREMENTAL_OVERLAP_HOURS
 
 
 @dataclass
@@ -85,6 +98,41 @@ class IncrementalCollectionMode(CollectionMode):
                 return max(window_start, watermark), until
         return window_start, until
 
+    def resolve_source_scopes(
+        self,
+        store: JsonIntelRunStore,
+        checkpoints: list[SourceCheckpoint] | None = None,
+        corpus_items: list[RawIntelItem] | None = None,
+    ) -> tuple[dict[str, datetime], datetime]:
+        """Resolve independent source cursors with a late-arrival overlap window."""
+        until = self.until or datetime.now(timezone.utc)
+        if self.since is not None:
+            return {source: self.since for source in _CHECKPOINTED_SOURCES}, until
+        fallback = until - timedelta(days=self.window_days or 1)
+        checkpoint_list = (
+            checkpoints
+            if checkpoints is not None
+            else getattr(store, "load_source_checkpoints", lambda: [])()
+        )
+        checkpoints_by_source = {
+            checkpoint.source_name: checkpoint for checkpoint in checkpoint_list
+        }
+        historical = (
+            _latest_watermarks_from_items(corpus_items)
+            if corpus_items is not None
+            else _latest_watermarks_by_source(store)
+        )
+        starts: dict[str, datetime] = {}
+        for source in _CHECKPOINTED_SOURCES:
+            checkpoint = checkpoints_by_source.get(source)
+            watermark = checkpoint.watermark if checkpoint and checkpoint.complete else historical.get(source)
+            starts[source] = (
+                watermark - timedelta(hours=incremental_overlap_hours())
+                if watermark is not None
+                else fallback
+            )
+        return starts, until
+
 
 def _latest_watermark(store: JsonIntelRunStore) -> datetime | None:
     latest: datetime | None = None
@@ -94,4 +142,27 @@ def _latest_watermark(store: JsonIntelRunStore) -> datetime | None:
                 continue
             if latest is None or item.published_at > latest:
                 latest = item.published_at
+    return latest
+
+
+def _latest_watermarks_by_source(store: JsonIntelRunStore) -> dict[str, datetime]:
+    latest: dict[str, datetime] = {}
+    for blackboard in store.load_all_blackboards(limit=200):
+        for item in blackboard.raw_items:
+            if item.published_at is None:
+                continue
+            current = latest.get(item.source_name)
+            if current is None or item.published_at > current:
+                latest[item.source_name] = item.published_at
+    return latest
+
+
+def _latest_watermarks_from_items(items: list[RawIntelItem]) -> dict[str, datetime]:
+    latest: dict[str, datetime] = {}
+    for item in items:
+        if item.source_name not in _CHECKPOINTED_SOURCES or item.published_at is None:
+            continue
+        prior = latest.get(item.source_name)
+        if prior is None or item.published_at > prior:
+            latest[item.source_name] = item.published_at
     return latest

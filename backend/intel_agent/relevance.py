@@ -217,6 +217,13 @@ def _set_relevance(
     relevance: dict[str, Any] = {"score": round(float(score), 4), "label": label, "method": method}
     if topic:
         relevance["topic"] = topic
+    topic_scores: dict[str, float] = {}
+    for detected in item.metadata.get("topics", []):
+        if detected in TOPIC_ANCHORS:
+            topic_scores[str(detected)] = 1.0
+    if topic:
+        topic_scores[topic] = max(topic_scores.get(topic, 0.0), round(float(score), 4))
+    item.metadata["topic_scores"] = topic_scores
     item.metadata["relevance"] = relevance
 
 

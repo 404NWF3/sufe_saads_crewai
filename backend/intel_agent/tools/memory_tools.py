@@ -26,7 +26,7 @@ _RECORD_SCHEMA = {
 }
 
 
-def build_memory_tools(ctx: ToolContext) -> list[Any]:
+def build_memory_tools(ctx: ToolContext, *, include_record: bool = True) -> list[Any]:
     from claude_agent_sdk import tool
 
     @tool("recall_playbook", "Recall proven search techniques from past runs before planning "
@@ -55,7 +55,11 @@ def build_memory_tools(ctx: ToolContext) -> list[Any]:
         )
         return _text("Technique noted; it will be scored against this round's yield.")
 
-    return [recall_playbook, record_technique]
+    return (
+        [recall_playbook, record_technique]
+        if include_record
+        else [recall_playbook]
+    )
 
 
 def _text(message: str) -> dict[str, Any]:

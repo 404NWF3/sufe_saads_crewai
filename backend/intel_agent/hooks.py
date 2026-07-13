@@ -14,11 +14,14 @@ import os
 from typing import Any
 
 from .tools.context import ToolContext
-from .tools.server import SERVER_NAME
+from .tools.constants import SERVER_NAME
+from .schemas import RunGap
 
 _SOURCE_TOOLS = {
-    f"mcp__{SERVER_NAME}__{name}"
-    for name in ("search_nvd", "search_arxiv", "search_cisa_kev", "search_osv")
+    f"mcp__{SERVER_NAME}__search_nvd": "nvd_cve_api",
+    f"mcp__{SERVER_NAME}__search_arxiv": "arxiv_api",
+    f"mcp__{SERVER_NAME}__search_cisa_kev": "cisa_kev_json",
+    f"mcp__{SERVER_NAME}__search_osv": "osv_dev_api",
 }
 
 
@@ -35,23 +38,38 @@ def build_hooks(ctx: ToolContext) -> dict[str, Any] | None:
     except ImportError:
         return None
 
-    audit: list[dict[str, Any]] = []
-    ctx.notes  # touch to keep ctx referenced; audit is stored on ctx below
-    setattr(ctx, "hook_audit", audit)
-
     async def pre_tool_use(input_data: dict[str, Any], tool_use_id: Any, context: Any) -> dict[str, Any]:
         tool_name = str(input_data.get("tool_name", ""))
+        tool_input = input_data.get("tool_input") or {}
+        reason: str | None = None
         if tool_name in _SOURCE_TOOLS and not ctx.budget_remaining():
+            reason = "API-call budget exhausted for this run."
+        elif tool_name in _SOURCE_TOOLS and len(ctx.executed_calls) >= ctx.max_calls_this_round:
+            reason = "Per-round source-call budget exhausted."
+        elif tool_name in _SOURCE_TOOLS and ctx.adaptive:
+            # Lazy import keeps the hook definitions independent from MCP server
+            # construction during clean-process imports.
+            from .tools.source_tools import validate_adaptive_candidate_call
+
+            candidate_id = str(tool_input.get("candidate_id") or "")
+            reason = validate_adaptive_candidate_call(
+                ctx, _SOURCE_TOOLS[tool_name], candidate_id
+            )
+        if reason:
             return {
                 "hookSpecificOutput": {
                     "hookEventName": "PreToolUse",
                     "permissionDecision": "deny",
-                    "permissionDecisionReason": "API-call budget exhausted for this run.",
+                    "permissionDecisionReason": reason,
                 }
             }
         return {}
 
     async def post_tool_use(input_data: dict[str, Any], tool_use_id: Any, context: Any) -> dict[str, Any]:
+        audit = getattr(ctx, "hook_audit", None)
+        if not isinstance(audit, list):
+            audit = []
+            setattr(ctx, "hook_audit", audit)
         audit.append(
             {
                 "tool": str(input_data.get("tool_name", "")),
@@ -60,7 +78,27 @@ def build_hooks(ctx: ToolContext) -> dict[str, Any] | None:
         )
         return {}
 
+    async def post_tool_failure(
+        input_data: dict[str, Any], tool_use_id: Any, context: Any
+    ) -> dict[str, Any]:
+        tool_name = str(input_data.get("tool_name", ""))
+        if tool_name in _SOURCE_TOOLS:
+            short_name = tool_name.rsplit("__", 1)[-1]
+            ctx.run_gaps.append(
+                RunGap(
+                    gap_id=f"run:tool_failure:{short_name}:{len(ctx.run_gaps)}",
+                    gap_type="retry",
+                    status="open",
+                    priority="high",
+                    retryable=True,
+                    rationale=str(input_data.get("error") or "source tool failed")[:300],
+                    metadata={"tool_name": tool_name},
+                )
+            )
+        return {}
+
     return {
         "PreToolUse": [HookMatcher(hooks=[pre_tool_use])],
         "PostToolUse": [HookMatcher(hooks=[post_tool_use])],
+        "PostToolUseFailure": [HookMatcher(hooks=[post_tool_failure])],
     }

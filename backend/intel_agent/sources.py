@@ -143,11 +143,13 @@ def search_source(
                 cwe_id=params.get("nvd_cwe_id"),
                 cvss_v3_severity=params.get("nvd_cvss_v3_severity"),
                 no_rejected=bool(params.get("nvd_no_rejected", True)),
+                start_index=int(params.get("nvd_start_index") or 0),
             )
         elif source_name == "arxiv_api":
             items = search_arxiv_api(
                 query_text, topics, max_results, timeout_seconds,
                 arxiv_search_query=params.get("arxiv_search_query"),
+                arxiv_start=int(params.get("arxiv_start") or 0),
             )
         elif source_name == "cisa_kev_json":
             items = search_cisa_kev_json(
@@ -189,10 +191,12 @@ def search_nvd_cve_api(
     pub_end_date: str | None = None, has_kev: bool = False, cve_id: str | None = None,
     keyword_exact_match: bool = False, cwe_id: str | None = None,
     cvss_v3_severity: str | None = None, no_rejected: bool = True,
+    start_index: int = 0,
 ) -> list[RawIntelItem]:
     params = _build_nvd_query_params(
         query_text, max_results, keyword_search, pub_start_date, pub_end_date,
         has_kev, cve_id, keyword_exact_match, cwe_id, cvss_v3_severity, no_rejected,
+        start_index,
     )
     data = _fetch_json(_url_with_params(NVD_CVE_API_URL, params), timeout_seconds)
     return parse_nvd_items(data)
@@ -201,10 +205,11 @@ def search_nvd_cve_api(
 def search_arxiv_api(
     query_text: str, target_topics: list[str], max_results: int,
     timeout_seconds: int, arxiv_search_query: str | None = None,
+    arxiv_start: int = 0,
 ) -> list[RawIntelItem]:
     search_query = arxiv_search_query or build_arxiv_search_query(query_text, target_topics)
     params = {
-        "search_query": search_query, "start": "0", "max_results": str(max_results),
+        "search_query": search_query, "start": str(max(0, arxiv_start)), "max_results": str(max_results),
         "sortBy": "submittedDate", "sortOrder": "descending",
     }
     raw_xml = _fetch_text(_url_with_params(ARXIV_API_URL, params), timeout_seconds)
@@ -254,9 +259,12 @@ def _build_nvd_query_params(
     pub_start_date: str | None, pub_end_date: str | None, has_kev: bool,
     cve_id: str | None, keyword_exact_match: bool, cwe_id: str | None,
     cvss_v3_severity: str | None, no_rejected: bool,
+    start_index: int = 0,
 ) -> dict[str, str | None]:
     cve = cve_id or _extract_first_cve_id(query_text)
-    params: dict[str, str | None] = {"resultsPerPage": str(max_results), "startIndex": "0"}
+    params: dict[str, str | None] = {
+        "resultsPerPage": str(max_results), "startIndex": str(max(0, start_index))
+    }
     if cve:
         params["cveId"] = cve
     else:

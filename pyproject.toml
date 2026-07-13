@@ -5,7 +5,7 @@ description = "LLM-security intel_agent + ctinexus_kg + Gradio console"
 authors = [{ name = "Your Name", email = "you@example.com" }]
 requires-python = ">=3.10,<3.14"
 dependencies = [
-    "claude-agent-sdk>=0.2.113",
+    "claude-agent-sdk>=0.2.115,<0.3",
     "pydantic>=2.7",
     "pymongo>=4.6",
     "ctinexus==0.2.1",
@@ -22,10 +22,10 @@ web = "console.app:main"
 
 [dependency-groups]
 agentsdk = [
-    "claude-agent-sdk>=0.2.113",
+    "claude-agent-sdk>=0.2.115,<0.3",
 ]
 intelagent = [
-    "claude-agent-sdk>=0.2.113",
+    "claude-agent-sdk>=0.2.115,<0.3",
     "pydantic>=2.7",
     "pymongo>=4.6",
 ]
@@ -35,7 +35,7 @@ ctinexuskg = [
 ]
 web = [
     "gradio>=5.0.0,<6.0.0",
-    "claude-agent-sdk>=0.2.113",
+    "claude-agent-sdk>=0.2.115,<0.3",
     "pydantic>=2.7",
     "pymongo>=4.6",
     "ctinexus==0.2.1",

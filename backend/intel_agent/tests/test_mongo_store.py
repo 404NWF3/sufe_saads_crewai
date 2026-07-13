@@ -3,7 +3,8 @@ from __future__ import annotations
 import pytest
 
 from intel_agent import mongo_store
-from intel_agent.schemas import IntelRunBlackboard
+from intel_agent.persistence import JsonIntelRunStore
+from intel_agent.schemas import IntelRunBlackboard, SourceCheckpoint
 from intel_agent.tests.conftest import make_item
 
 
@@ -35,6 +36,12 @@ def test_build_run_document_strips_raw_text_but_keeps_item_ids():
     assert doc["item_count"] == 2
     assert doc["item_ids"] == ["nvd:a", "nvd:b"]
     assert all(raw["raw_text"] is None for raw in doc["blackboard"]["raw_items"])
+
+
+def test_json_and_mongo_run_summaries_use_the_same_adaptive_fields(tmp_path):
+    board = _blackboard("consistent", ["nvd:a"])
+    expected = JsonIntelRunStore(root_dir=tmp_path)._summary(board, [])
+    assert mongo_store.run_summary(board, []) == expected
 
 
 # ----------------------------------------------------- integration (mongomock)
@@ -72,6 +79,39 @@ def test_load_all_blackboards_and_latest(store):
     latest = store.load_latest_payload()
     assert latest["run_id"] == "run-2"
     assert "Store: MongoDB" in store.format_latest_intel()
+
+
+def test_load_global_corpus_and_latest_source_checkpoint(store):
+    board = _blackboard("run-checkpoint", ["nvd:a"])
+    board.source_checkpoints.append(
+        SourceCheckpoint(source_name="nvd_cve_api", complete=True)
+    )
+    store.save_run(board)
+    assert store.load_latest_payload()["schema_version"] == 3
+    assert [item.item_id for item in store.load_corpus_items()] == ["nvd:a"]
+    assert store.load_source_checkpoints()[0].source_name == "nvd_cve_api"
+
+
+def test_mongo_store_reads_v2_blackboard_with_v3_defaults(store):
+    board = _blackboard("v2-mongo", ["nvd:a"])
+    doc = mongo_store.build_run_document(board, [], "succeeded", "2026-07-09T00:00:00Z")
+    doc["schema_version"] = 2
+    for field in (
+        "corpus_gaps",
+        "run_gaps",
+        "query_outcomes",
+        "source_checkpoints",
+        "candidate_topics",
+        "extended_trends",
+        "sdk_session_id",
+        "stop_reason",
+        "collection_strategy",
+    ):
+        doc["blackboard"].pop(field, None)
+    store._runs.insert_one(doc)
+    loaded = store.load_all_blackboards(limit=10)[0]
+    assert loaded.run_id == "v2-mongo"
+    assert loaded.corpus_gaps == [] and loaded.collection_strategy == "legacy"
 
 
 def test_list_run_summaries_and_query_items(store):

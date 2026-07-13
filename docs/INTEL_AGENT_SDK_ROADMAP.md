@@ -282,7 +282,7 @@ src/sufe_saads_crewai/
 
 | 阶段 | 状态 | 说明 |
 |---|---|---|
-| P0 | **完成（验收通过）** | SDK 0.2.99 装入 `agentsdk` group；DeepSeek Anthropic 兼容端点全矩阵实测达标（工具调用 100%、tool-forcing 解析 100%，见第 5 章与 `spikes/agent_sdk_glm/results.deepseek.json`）；GLM 端点因 Coding Plan 到期保留为备选（`INTEL_SDK_PROVIDER=glm`） |
+| P0 | **完成（验收通过）** | SDK 已更新至 0.2.115 并装入 `agentsdk` group；DeepSeek Anthropic 兼容端点全矩阵实测达标（工具调用 100%、tool-forcing 解析 100%，见第 5 章与 `spikes/agent_sdk_glm/results.deepseek.json`）；GLM 端点因 Coding Plan 到期保留为备选（`INTEL_SDK_PROVIDER=glm`） |
 | P1 | **完成** | `agent_runtime/`（已多 provider 化）、`tools_mcp/`、`intel/rules.py`（real_loop 已改为委托共享规则）、`intel/sdk_loop.py`、`INTEL_ENGINE` 工厂（默认 rules）全部落地；fallback 注入测试（`tests/test_sdk_loop.py`）验证三层降级可观测；全套测试绿 |
 | P2 | **完成** | 四能力 + 三层相关性 + 上下文摘要全部实现并各有单测；**bandit 离线回放在 33 个历史 run / 617 轮实测 regret 1.063 < 轮询 1.245，达标**；决策解析率经 DeepSeek 端点实测 100%；高级参数占比 / 终止偏差指标已入 `scripts/eval_ab.py`（`advanced_params` / `stop_round` 字段） |
 | P3 | **进行中（sdk 引擎已可 live 运行）** | `tests/eval_goals.json`（7 个冻结目标）、`scripts/eval_ab.py`、`scripts/bandit_replay.py` 就绪并已冒烟；完整 A/B（7 目标 × 2 引擎 × 3 重复）、人工抽检与默认引擎切换待执行评审 |
@@ -337,7 +337,7 @@ src/sufe_saads_crewai/
 
 ### 12.3 参考链接
 
-- claude-agent-sdk（PyPI，v0.2.99）：https://pypi.org/project/claude-agent-sdk/
+- claude-agent-sdk（PyPI，当前锁定 v0.2.115）：https://pypi.org/project/claude-agent-sdk/
 - 智谱 Anthropic 兼容端点接入（Claude Code × GLM）：https://zhuanlan.zhihu.com/p/1993323826382139976 、https://segmentfault.com/a/1190000047552132
 - 既有路线需求来源：仓库根目录 `CLAUDE.md`「方向一：情报采集的自主决策能力」
 - 相关性三层过滤参考实现：`base_kg/pipeline/relevance.py`

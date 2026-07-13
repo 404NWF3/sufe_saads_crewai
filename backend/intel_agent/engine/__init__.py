@@ -2,12 +2,25 @@
 
 from __future__ import annotations
 
-from .controller import IntelAgentController
-from .modes import CollectionMode, FullCollectionMode, IncrementalCollectionMode
-
 __all__ = [
     "IntelAgentController",
     "CollectionMode",
     "FullCollectionMode",
     "IncrementalCollectionMode",
 ]
+
+
+def __getattr__(name: str):
+    if name == "IntelAgentController":
+        from .controller import IntelAgentController
+
+        return IntelAgentController
+    if name in {"CollectionMode", "FullCollectionMode", "IncrementalCollectionMode"}:
+        from .modes import CollectionMode, FullCollectionMode, IncrementalCollectionMode
+
+        return {
+            "CollectionMode": CollectionMode,
+            "FullCollectionMode": FullCollectionMode,
+            "IncrementalCollectionMode": IncrementalCollectionMode,
+        }[name]
+    raise AttributeError(name)

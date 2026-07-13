@@ -32,7 +32,7 @@ RUN pip install --upgrade pip \
     && if [ -n "$PIP_INDEX_URL" ]; then EXTRA_ARGS="$EXTRA_ARGS -i $PIP_INDEX_URL"; fi \
     && if [ -n "$PIP_TRUSTED_HOST" ]; then EXTRA_ARGS="$EXTRA_ARGS --trusted-host $PIP_TRUSTED_HOST"; fi \
     && pip install $EXTRA_ARGS \
-        "claude-agent-sdk>=0.2.113" \
+        "claude-agent-sdk>=0.2.115,<0.3" \
         "pydantic>=2.7" \
         "pymongo>=4.6" \
         "ctinexus==0.2.1" \

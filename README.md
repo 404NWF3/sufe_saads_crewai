@@ -32,7 +32,10 @@ uv run python scripts/smoke_pipeline.py
 
 ## MongoDB 读写与导出
 
-宿主机连接：`localhost:27017`，库名 `intel_agent`，无鉴权。容器内互连：`mongodb://mongo:27017`。
+- 宿主机 / DBeaver：`localhost:27018`（compose 映射，避开本机 mongod 的 27017），库名 `intel_agent`，无鉴权。
+- 容器内互连：`mongodb://mongo:27017`（compose 已为 `web` / `intel-agent` 覆盖）。
+- 数据落在 Docker 命名卷 `mongo_data`，**不要**再把 dbpath bind-mount 到 `data/mongo`（网盘同步 sidecar 会打坏 WiredTiger）。
+- `.env` 宿主机 URI 用 `mongodb://localhost:27018`。
 
 ```bash
 # 交互查询（在宿主机 PowerShell / bash，不要在 mongosh 提示符里跑 docker）

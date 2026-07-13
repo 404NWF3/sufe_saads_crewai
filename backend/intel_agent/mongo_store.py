@@ -25,9 +25,12 @@ from pydantic import ValidationError
 
 from .persistence import format_intel_items
 from .runtime.client import _setting
-from .schemas import IntelRunBlackboard, RawIntelItem, RawIntelItemBatch
+from .schemas import IntelRunBlackboard, RawIntelItem, RawIntelItemBatch, SourceCheckpoint
+from .topics import EXTENDED_SECURITY_TOPICS
 
-DEFAULT_MONGO_URI = "mongodb://localhost:27017"
+# Host-published Docker port (compose maps 27018->27017). Avoids clashing
+# with a local Windows mongod that typically owns 27017.
+DEFAULT_MONGO_URI = "mongodb://localhost:27018"
 DEFAULT_MONGO_DB = "intel_agent"
 DEFAULT_RUNS_COLLECTION = "runs"
 DEFAULT_ITEMS_COLLECTION = "items"
@@ -69,6 +72,14 @@ def run_summary(blackboard: IntelRunBlackboard, batches: list[RawIntelItemBatch]
         "raw_items": len(blackboard.raw_items),
         "raw_item_batches": len(batches),
         "coverage_gaps_remaining": [g.taxonomy_or_component for g in blackboard.coverage_gaps],
+        "stop_reason": blackboard.stop_reason,
+        "core_gap_count": sum(1 for gap in blackboard.corpus_gaps if gap.status == "open"),
+        "extended_item_count": sum(
+            1
+            for item in blackboard.raw_items
+            if set(item.metadata.get("topics") or []) & set(EXTENDED_SECURITY_TOPICS)
+        ),
+        "candidate_topic_count": len(blackboard.candidate_topics),
         "last_action": (
             blackboard.action_history[-1].action_type if blackboard.action_history else None
         ),
@@ -86,6 +97,7 @@ def build_run_document(
     for raw in board.get("raw_items", []):
         raw["raw_text"] = None
     return {
+        "schema_version": 3,
         "_id": blackboard.run_id,
         "run_id": blackboard.run_id,
         "status": status,
@@ -223,6 +235,22 @@ class MongoIntelRunStore:
                 continue
         return boards
 
+    def load_corpus_items(self) -> list[RawIntelItem]:
+        items: list[RawIntelItem] = []
+        for doc in self._items.find({}):
+            try:
+                items.append(RawIntelItem.model_validate(doc))
+            except (ValidationError, TypeError):
+                continue
+        return items
+
+    def load_source_checkpoints(self) -> list[SourceCheckpoint]:
+        latest: dict[str, SourceCheckpoint] = {}
+        for blackboard in self.load_all_blackboards(limit=100_000):
+            for checkpoint in blackboard.source_checkpoints:
+                latest.setdefault(checkpoint.source_name, checkpoint)
+        return list(latest.values())
+
     def format_latest_intel(self, limit: int = 20) -> str:
         payload = self.load_latest_payload()
         if not payload:
@@ -280,6 +308,10 @@ class MongoIntelRunStore:
                     "rounds": summary.get("rounds"),
                     "run_goal": summary.get("run_goal"),
                     "coverage_gaps": ", ".join(summary.get("coverage_gaps_remaining") or []),
+                    "stop_reason": summary.get("stop_reason"),
+                    "core_gap_count": summary.get("core_gap_count", 0),
+                    "extended_item_count": summary.get("extended_item_count", 0),
+                    "candidate_topic_count": summary.get("candidate_topic_count", 0),
                     "engine": doc.get("engine"),
                 }
             )

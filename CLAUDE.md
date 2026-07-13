@@ -1,6 +1,8 @@
 # CLAUDE.md
 
-本文件为 Claude Code 在本仓库工作时的项目指南。CrewAI 框架的编码规范、API 模式与命令速查请遵循根目录 `AGENTS.md`（尤其是"写 CrewAI 代码前先核对已安装版本与官方文档"的要求），本文件不重复其内容，只补充项目自身的背景、约定与发展路线。
+本文件为 Claude Code 在本仓库工作时的项目指南。claude agent sdk 框架的编码规范、API 模式与命令速查请遵循根目录 `AGENTS.md`（尤其是"写 claude agent sdk 代码前先核对已安装版本与官方文档"的要求），本文件不重复其内容，只补充项目自身的背景、约定与发展路线。、
+
+在开发 Claude agent sdk 项目的时候要注意查阅：https://code.claude.com/docs/en/agent-sdk/overview
 
 ## 项目定位
 
@@ -59,7 +61,7 @@ backend/console/                   # Gradio 统一控制台
 数据与输出约定：
 
 - 采集结果：`data/intel_runs/<run_id>.json` + `latest.json`（未开 Mongo 时）；或 MongoDB `intel_agent.runs` / `items`。
-- **MongoDB（可选）**：`INTEL_MONGO_URI` 或 `INTEL_MONGO_ENABLED=1`。`runs` 每任务一份；`items` 以 `item_id` 作 `_id` 全局去重（`run_ids` 溯源）。宿主机/DBeaver：`localhost:27017`、库 `intel_agent`、无鉴权；容器内：`mongodb://mongo:27017`。全量 CSV：宿主机用 `mongoexport`（勿在 mongosh 内跑 `docker`）；或 Gradio Database / `data/exports/`。
+- **MongoDB（可选）**：`INTEL_MONGO_URI` 或 `INTEL_MONGO_ENABLED=1`。`runs` 每任务一份；`items` 以 `item_id` 作 `_id` 全局去重（`run_ids` 溯源）。宿主机/DBeaver：`localhost:27018`（compose 映射，避开本机 mongod 27017）、库 `intel_agent`、无鉴权；容器内：`mongodb://mongo:27017`。数据在命名卷 `mongo_data`，勿再 bind-mount `data/mongo`。全量 CSV：宿主机用 `mongoexport`（勿在 mongosh 内跑 `docker`）；或 Gradio Database / `data/exports/`。
 - **verbose 追踪**：`data/intel_agent/traces/<run_id>.jsonl`。
 - item 级 KG：`data/intel_runs/<run_id>_kg/<item_id>.json` + `manifest.json`；可视化 HTML 在 `ctinexus_output/`。
 - CSV 导出：`data/exports/`（Database 面板或 `mongoexport`）。

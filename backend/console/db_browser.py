@@ -23,6 +23,10 @@ RUN_HEADERS = [
     "rounds",
     "run_goal",
     "coverage_gaps",
+    "stop_reason",
+    "core_gap_count",
+    "extended_item_count",
+    "candidate_topic_count",
     "engine",
 ]
 
